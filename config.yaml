@@ -1,0 +1,158 @@
+# =============================================================================
+#  일본 트렌드 모니터링 대시보드 설정
+#  - 카테고리와 데이터 소스를 이 파일에서 추가/삭제/토글할 수 있습니다.
+#  - 변경 후에는 서버를 재시작하세요.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 카테고리
+#   id        : 내부 식별자(영문, 저장/필터에 사용)
+#   label     : 화면에 표시될 이름
+#   label_ja  : 참고용 일본어 라벨
+#   news_queries : Google 뉴스 RSS 검색어(일본어). 이 카테고리를 뉴스로 채웁니다.
+#   keywords     : (선택) pytrends 인기도 조회 키워드. 없으면 news_queries 첫 항목 사용
+#   nhk_cats     : (선택) 이 카테고리에 매핑할 NHK RSS 카테고리
+# 카테고리를 추가하려면 아래 목록에 항목을 하나 더 넣기만 하면 됩니다.
+# -----------------------------------------------------------------------------
+categories:
+  - id: subsidy
+    label: 보조금
+    label_ja: 補助金
+    news_queries: ["補助金", "給付金", "助成金"]
+    keywords: ["補助金", "給付金"]
+
+  - id: entertainment
+    label: 연예
+    label_ja: 芸能
+    news_queries: ["芸能", "エンタメ"]
+    keywords: ["芸能"]
+
+  - id: politics
+    label: 정치
+    label_ja: 政治
+    news_queries: ["政治"]
+    keywords: ["政治"]
+    nhk_cats: ["cat4"]
+
+  - id: shopping
+    label: 쇼핑
+    label_ja: ショッピング
+    news_queries: ["セール", "通販", "ショッピング"]
+    keywords: ["セール"]
+
+  - id: trend
+    label: 트렌드
+    label_ja: トレンド
+    # 실시간 급상승(Google 트렌드 / Yahoo / YouTube / 트렌드 캘린더)이 주로 채웁니다.
+    keywords: ["トレンド"]
+
+  - id: economy
+    label: 경제
+    label_ja: 経済
+    news_queries: ["経済"]
+    keywords: ["経済", "株価"]
+    nhk_cats: ["cat5"]
+
+  - id: current_affairs
+    label: 시사
+    label_ja: 時事
+    news_queries: ["ニュース", "時事"]
+    keywords: ["ニュース"]
+    nhk_cats: ["cat0", "cat6"]
+
+# -----------------------------------------------------------------------------
+# 데이터 소스 (어댑터)
+#   enabled: false 로 두면 해당 소스는 수집되지 않습니다.
+#   ⚠️ 표시는 이용약관/차단 리스크가 상대적으로 높은 소스입니다(README 참고).
+# -----------------------------------------------------------------------------
+sources:
+  # ✅ 낮은 리스크 (공개 RSS)
+  google_trends_rss:
+    enabled: true
+    geo: JP
+    default_category: trend
+    max_items: 25
+
+  # ✅ 낮은 리스크 (공식 무료 API, .env 의 YOUTUBE_API_KEY 필요)
+  youtube_trending:
+    enabled: true
+    region: JP
+    max_items: 40
+    # YouTube videoCategoryId -> 우리 카테고리 id
+    category_map:
+      "24": entertainment   # Entertainment
+      "10": entertainment   # Music
+      "23": entertainment   # Comedy
+      "22": entertainment   # People & Blogs
+      "1":  entertainment   # Film & Animation
+      "25": current_affairs # News & Politics
+      "17": trend           # Sports
+      "20": trend           # Gaming
+    default_category: trend
+
+  # ✅ 낮은 리스크 (RSS 신디케이션) — 보조금/정치/경제/시사 커버 주력
+  google_news_rss:
+    enabled: true
+    per_category_limit: 12
+
+  # ✅ 낮은 리스크 (NHK 공식 RSS)
+  nhk_rss:
+    enabled: true
+    per_feed_limit: 12
+    # NHK RSS 카테고리 -> 우리 카테고리 id
+    feeds:
+      cat0: current_affairs   # 主要
+      cat1: current_affairs   # 社会
+      cat4: politics          # 政治
+      cat5: economy           # 経済
+      cat6: current_affairs   # 国際
+
+  # ⚠️ 중간 리스크 (제3자 사이트 스크래핑, robots상 랭킹 페이지 허용)
+  trend_calendar:
+    enabled: true
+    default_category: trend
+    max_items: 30
+
+  # ⚠️ 중간 리스크 (비공식 pytrends, 429 rate-limit 잦음)
+  google_trends_interest:
+    enabled: true
+    geo: JP
+    hl: ja-JP
+    timeframe: "now 7-d"
+    max_keywords: 8          # 429 회피용 전체 키워드 상한
+    batch_sleep_seconds: 2   # pytrends 배치 사이 대기
+
+  # ⚠️⚠️ 높은 리스크 (Yahoo Japan 약관이 자동수집을 금지 — README의 경고를 반드시 읽으세요)
+  #   손쉽게 끄려면 enabled: false 로 변경.
+  yahoo_realtime:
+    enabled: true
+    default_category: trend
+    max_items: 30
+
+# -----------------------------------------------------------------------------
+# 수집/분류/HTTP/서버 설정
+# -----------------------------------------------------------------------------
+collection:
+  refresh_interval_seconds: 900    # 자동 갱신 주기 (기본 15분)
+  per_source_timeout_seconds: 30   # 소스별 타임아웃 (초과 시 그 소스만 실패 처리)
+  retention_days: 14               # 이력 보관 기간 (변동/지속 계산용)
+  run_on_startup: true             # 서버 시작 시 1회 즉시 수집
+
+classification:
+  # 아래 조건을 모두 만족하면 '지속 관심도'로 태그합니다.
+  persist_min_occurrences: 3       # 최소 등장 수집 횟수
+  persist_min_hours: 6             # 최소 지속 시간(시간)
+
+http:
+  user_agent: "JP-Trend-Monitor/1.0 (local research dashboard; +https://github.com/oronaminc/post)"
+  default_delay_seconds: 1.5       # 같은 호스트 연속 요청 최소 간격
+  timeout_seconds: 20
+  max_retries: 3
+  host_delays:                     # 예의상 사이트별로 더 느리게
+    search.yahoo.co.jp: 4.0
+    jp.trend-calendar.com: 3.0
+    trends.google.com: 2.0
+
+server:
+  host: "127.0.0.1"
+  port: 8899

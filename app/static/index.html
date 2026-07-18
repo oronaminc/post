@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>일본 트렌드 모니터</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%A5%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-main">
+      <h1>🇯🇵 일본 트렌드 모니터</h1>
+      <p class="subtitle">카테고리별 · 실시간 급상승 vs 지속 관심도</p>
+    </div>
+    <div class="header-actions">
+      <div class="updated">
+        <span class="updated-label">마지막 갱신</span>
+        <span id="last-updated">—</span>
+      </div>
+      <button id="refresh-btn" class="btn-refresh" title="지금 서버에서 새로 수집">
+        <span class="refresh-icon">⟳</span> 지금 갱신
+      </button>
+    </div>
+  </header>
+
+  <!-- 소스 상태(헬스) -->
+  <section id="source-health" class="source-health" aria-label="데이터 소스 상태"></section>
+
+  <!-- 컨트롤 바 -->
+  <section class="controls">
+    <div id="category-tabs" class="tabs" role="tablist"></div>
+    <div class="controls-right">
+      <div id="view-toggle" class="view-toggle">
+        <button data-view="all" class="active">전체</button>
+        <button data-view="realtime">🔥 실시간 급상승</button>
+        <button data-view="sustained">📈 지속 관심도</button>
+      </div>
+      <input id="search" class="search" type="search" placeholder="🔎 워드 검색…" />
+      <select id="sort" class="sort" title="정렬 기준">
+        <option value="rank">순위순</option>
+        <option value="change">변동순</option>
+        <option value="metric">지표순</option>
+        <option value="recency">최신순</option>
+        <option value="term">이름순</option>
+      </select>
+      <select id="source-filter" class="sort" title="소스 필터">
+        <option value="">모든 소스</option>
+      </select>
+    </div>
+  </section>
+
+  <div id="result-meta" class="result-meta"></div>
+
+  <!-- 결과 -->
+  <main id="results" class="results"></main>
+
+  <div id="empty-state" class="empty-state hidden">
+    <p>표시할 트렌드가 없습니다.</p>
+    <p class="hint">첫 수집이 진행 중이거나(수 초~수십 초 소요) 필터에 해당하는 항목이 없습니다.</p>
+  </div>
+
+  <footer class="app-footer">
+    <span>로컬 대시보드 · 자동 갱신 <span id="interval-label">—</span></span>
+    <span class="footer-warn">⚠️ 스크래핑 소스는 각 사이트 약관·robots.txt를 존중해 저빈도로 수집합니다.</span>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
