@@ -14,6 +14,7 @@ from .google_news_rss import GoogleNewsRssAdapter
 from .google_trends_interest import GoogleTrendsInterestAdapter
 from .google_trends_rss import GoogleTrendsRssAdapter
 from .nhk_rss import NhkRssAdapter
+from .ptt_taiwan import PttTaiwanAdapter
 from .trend_calendar import TrendCalendarAdapter
 from .yahoo_realtime import YahooRealtimeAdapter
 from .youtube_trending import YouTubeTrendingAdapter
@@ -33,6 +34,7 @@ ADAPTER_REGISTRY: dict[str, type[BaseAdapter]] = {
     TrendCalendarAdapter.name: TrendCalendarAdapter,
     GoogleTrendsInterestAdapter.name: GoogleTrendsInterestAdapter,
     YahooRealtimeAdapter.name: YahooRealtimeAdapter,
+    PttTaiwanAdapter.name: PttTaiwanAdapter,
 }
 
 

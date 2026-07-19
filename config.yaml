@@ -149,6 +149,21 @@ sources:
     default_category: trend
     max_items: 30
 
+  # ⚠️ 중간 리스크 (PTT 커뮤니티 스크래핑) — 대만 전용 현지 소셜 트렌드
+  #   게시판 → 카테고리 매핑. over18 게시판도 공개 연령확인 쿠키만 사용.
+  ptt_taiwan:
+    enabled: true
+    regions: [tw]
+    per_board_limit: 8
+    min_push: 10             # 추천수 이상만(=지금 뜨는 글). 낮추면 더 많이 노출
+    boards:
+      - { name: Gossiping,    category: current_affairs }   # 八卦(시사·일반)
+      - { name: HatePolitics, category: politics }          # 政黑(정치)
+      - { name: Stock,        category: economy }           # 股票(경제)
+      - { name: movie,        category: entertainment }     # 電影(연예/영화)
+      - { name: Lifeismoney,  category: shopping }          # 省錢(쇼핑·특가)
+      - { name: C_Chat,       category: trend }             # ACG 잡담(일반 화제)
+
   # ⚠️⚠️ 높은 리스크 (Yahoo Japan 약관이 자동수집 금지) — 일본 전용
   #   끄려면 enabled: false. (대만에는 적용하지 않음)
   yahoo_realtime:
@@ -204,6 +219,7 @@ http:
     search.yahoo.co.jp: 4.0
     jp.trend-calendar.com: 3.0
     trends.google.com: 2.0
+    www.ptt.cc: 2.0
 
 server:
   host: "127.0.0.1"
