@@ -8,12 +8,20 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from datetime import datetime, timezone
 
 from .adapters.base import BaseAdapter
 from .storage import Storage
 
 log = logging.getLogger("jptrend.collector")
+
+# 에러 메시지/로그에 URL이 섞여 들어올 때 API 키·토큰이 노출되지 않도록 마스킹.
+_SECRET_RE = re.compile(r"([?&](?:key|api_key|apikey|token|access_token|password)=)[^&\s\"']+", re.I)
+
+
+def _redact(text: str) -> str:
+    return _SECRET_RE.sub(r"\1***", text or "")
 
 
 class Collector:
@@ -67,7 +75,7 @@ class Collector:
             log.warning("[%s] %s", adapter.name, msg)
             return f"error: {msg}"
         except Exception as exc:
-            msg = f"{type(exc).__name__}: {exc}"
+            msg = _redact(f"{type(exc).__name__}: {exc}")
             await asyncio.to_thread(self.storage.finish_run, run_id, "error", 0, msg)
             log.warning("[%s] 실패: %s", adapter.name, msg)
             return f"error: {msg}"
