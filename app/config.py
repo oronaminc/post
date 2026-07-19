@@ -20,17 +20,52 @@ DATA_DIR = ROOT_DIR / "data"
 class AppConfig:
     def __init__(self, raw: dict[str, Any]):
         self.raw = raw
+        self.regions: list[dict] = raw.get("regions", []) or [
+            {"id": "jp", "label": "일본", "flag": "🇯🇵", "enabled": True}
+        ]
         self.categories: list[dict] = raw.get("categories", []) or []
         self.sources: dict[str, dict] = raw.get("sources", {}) or {}
+        self.translation: dict = raw.get("translation", {}) or {}
         self.collection: dict = raw.get("collection", {}) or {}
         self.classification: dict = raw.get("classification", {}) or {}
         self.http: dict = raw.get("http", {}) or {}
         self.server: dict = raw.get("server", {}) or {}
 
+    # --- 지역 ---
+    @property
+    def enabled_regions(self) -> list[dict]:
+        return [r for r in self.regions if r.get("enabled", True)]
+
+    @property
+    def enabled_region_ids(self) -> list[str]:
+        return [r["id"] for r in self.enabled_regions]
+
+    def region_label(self, region_id: str) -> str:
+        for r in self.regions:
+            if r["id"] == region_id:
+                return r.get("label", region_id)
+        return region_id
+
     # --- 편의 접근자 ---
     @property
     def category_ids(self) -> list[str]:
         return [c["id"] for c in self.categories]
+
+    @staticmethod
+    def _per_region(value: Any, region: str) -> list:
+        """설정값이 지역별 dict({jp:[..],tw:[..]})면 해당 지역 리스트를,
+        그냥 리스트면 그대로 반환(하위호환)."""
+        if isinstance(value, dict):
+            return value.get(region, []) or []
+        return value or []
+
+    def news_queries(self, category_id: str, region: str) -> list[str]:
+        c = self.category_by_id(category_id) or {}
+        return self._per_region(c.get("news_queries"), region)
+
+    def keywords(self, category_id: str, region: str) -> list[str]:
+        c = self.category_by_id(category_id) or {}
+        return self._per_region(c.get("keywords"), region)
 
     def category_label(self, category_id: str) -> str:
         for c in self.categories:

@@ -37,8 +37,9 @@ ADAPTER_REGISTRY: dict[str, type[BaseAdapter]] = {
 
 
 def build_adapters(config: "AppConfig", http: "PoliteClient") -> list[BaseAdapter]:
-    """config.sources 를 보고 enabled 인 어댑터만 인스턴스화."""
+    """config.sources × regions 를 보고 enabled 인 어댑터를 지역별로 인스턴스화."""
     adapters: list[BaseAdapter] = []
+    enabled_regions = config.enabled_region_ids
     for name, settings in config.sources.items():
         cls = ADAPTER_REGISTRY.get(name)
         if cls is None:
@@ -47,6 +48,11 @@ def build_adapters(config: "AppConfig", http: "PoliteClient") -> list[BaseAdapte
         if not (settings or {}).get("enabled", True):
             log.info("소스 '%s' 비활성(enabled: false) — 건너뜀", name)
             continue
-        adapters.append(cls(settings, http, config))
-        log.info("소스 '%s' 활성화 (risk=%s)", name, cls.risk)
+        # 이 소스가 서비스하는 지역 (미지정이면 활성 지역 전체)
+        source_regions = (settings or {}).get("regions") or enabled_regions
+        for region in source_regions:
+            if region not in enabled_regions:
+                continue
+            adapters.append(cls(settings, http, config, region))
+            log.info("소스 '%s' 활성화 [%s] (risk=%s)", name, region, cls.risk)
     return adapters

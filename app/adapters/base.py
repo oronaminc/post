@@ -31,14 +31,23 @@ class BaseAdapter(ABC):
     #: 이용약관/차단 리스크 등급 (low | medium | high) — 대시보드/헬스 표시용
     risk: str = "low"
 
-    def __init__(self, settings: dict, http: "PoliteClient", app_config: "AppConfig"):
+    def __init__(self, settings: dict, http: "PoliteClient", app_config: "AppConfig", region: str = "jp"):
         self.settings = settings or {}
         self.http = http
         self.app_config = app_config
+        self.region = region
 
     @property
     def enabled(self) -> bool:
         return bool(self.settings.get("enabled", True))
+
+    def _rget(self, key: str, default=None):
+        """설정값이 지역별 dict({jp:.., tw:..})면 이 어댑터 region 값을,
+        아니면 값 그대로 반환."""
+        val = self.settings.get(key, default)
+        if isinstance(val, dict) and self.region in val:
+            return val[self.region]
+        return val
 
     @abstractmethod
     async def fetch(self) -> list[RawTrendItem]:

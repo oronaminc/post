@@ -37,7 +37,7 @@ class GoogleTrendsRssAdapter(BaseAdapter):
     risk = "low"
 
     async def fetch(self) -> list[RawTrendItem]:
-        geo = self.settings.get("geo", "JP")
+        geo = self._rget("geo", "JP")          # 지역별 geo (JP/TW)
         max_items = int(self.settings.get("max_items", 25))
         category = self._safe_category(self.settings.get("default_category", "trend"))
         url = f"https://trends.google.com/trending/rss?geo={geo}"

@@ -31,18 +31,24 @@ class GoogleNewsRssAdapter(BaseAdapter):
 
     async def fetch(self) -> list[RawTrendItem]:
         per_cat = int(self.settings.get("per_category_limit", 12))
+        # 지역별 로케일 (일본=ja/JP, 대만=zh-TW/TW)
+        locale = self._rget("locale", {}) or {}
+        hl = locale.get("hl", "ja")
+        gl = locale.get("gl", "JP")
+        ceid = locale.get("ceid", "JP:ja")
         items: list[RawTrendItem] = []
 
         for cat in self.app_config.categories:
-            queries = cat.get("news_queries") or []
+            cat_id = cat["id"]
+            queries = self.app_config.news_queries(cat_id, self.region)
             if not queries:
                 continue
-            cat_id = cat["id"]
             seen: set[str] = set()
             rank = 0
             for query in queries:
                 q = urllib.parse.quote(query)
-                url = f"https://news.google.com/rss/search?q={q}&hl=ja&gl=JP&ceid=JP:ja"
+                url = (f"https://news.google.com/rss/search?q={q}"
+                       f"&hl={hl}&gl={gl}&ceid={urllib.parse.quote(ceid)}")
                 try:
                     raw = await self.http.get_bytes(url)
                 except Exception:

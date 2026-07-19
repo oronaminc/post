@@ -31,8 +31,9 @@ class TrendCalendarAdapter(BaseAdapter):
     async def fetch(self) -> list[RawTrendItem]:
         max_items = int(self.settings.get("max_items", 30))
         category = self._safe_category(self.settings.get("default_category", "trend"))
+        base_url = self._rget("base_url", BASE_URL)
 
-        html = await self.http.get_text(BASE_URL)
+        html = await self.http.get_text(base_url)
         soup = BeautifulSoup(html, "html.parser")
 
         items: list[RawTrendItem] = []

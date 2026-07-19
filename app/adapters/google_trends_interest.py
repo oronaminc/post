@@ -28,11 +28,12 @@ class GoogleTrendsInterestAdapter(BaseAdapter):
     risk = "medium"
 
     def _collect_keywords(self) -> list[tuple[str, str]]:
-        """(keyword, category_id) 목록. max_keywords 로 상한."""
+        """(keyword, category_id) 목록. max_keywords 로 상한. 지역별 키워드 사용."""
         max_kw = int(self.settings.get("max_keywords", 8))
         pairs: list[tuple[str, str]] = []
         for cat in self.app_config.categories:
-            kws = cat.get("keywords") or cat.get("news_queries") or []
+            kws = (self.app_config.keywords(cat["id"], self.region)
+                   or self.app_config.news_queries(cat["id"], self.region))
             if kws:
                 pairs.append((kws[0], cat["id"]))  # 카테고리당 대표 1개
         return pairs[:max_kw]
@@ -42,8 +43,8 @@ class GoogleTrendsInterestAdapter(BaseAdapter):
         from pytrends.request import TrendReq
         import time
 
-        geo = self.settings.get("geo", "JP")
-        hl = self.settings.get("hl", "ja-JP")
+        geo = self._rget("geo", "JP")          # 지역별 geo (JP/TW)
+        hl = self._rget("hl", "ja-JP")         # 지역별 언어
         timeframe = self.settings.get("timeframe", "now 7-d")
         batch_sleep = float(self.settings.get("batch_sleep_seconds", 2))
 

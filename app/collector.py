@@ -25,10 +25,11 @@ def _redact(text: str) -> str:
 
 
 class Collector:
-    def __init__(self, adapters: list[BaseAdapter], storage: Storage, config):
+    def __init__(self, adapters: list[BaseAdapter], storage: Storage, config, translator=None):
         self.adapters = adapters
         self.storage = storage
         self.config = config
+        self.translator = translator
         self._lock = asyncio.Lock()  # 동시 수집 방지(스케줄러 + 수동 겹침 방지)
 
     async def collect_all(self) -> dict[str, str]:
@@ -45,6 +46,11 @@ class Collector:
                     summary[adapter.name] = f"error: {res}"
                 else:
                     summary[adapter.name] = res
+            # 현재 표시될 트렌드 워드 중 미번역분을 한국어로 번역(캐시)
+            try:
+                await self._translate_current()
+            except Exception as exc:
+                log.warning("번역 단계 실패(무시): %s", exc)
             # 오래된 이력 정리
             try:
                 await asyncio.to_thread(self.storage.prune, self.config.retention_days)
@@ -53,13 +59,42 @@ class Collector:
             log.info("수집 완료: %s", summary)
             return summary
 
+    async def _translate_current(self) -> None:
+        """각 지역 현재 항목 중 term_ko 가 없는(미번역) 워드만 번역해 캐시에 저장.
+
+        청크 단위로 저장해 콜드스타트에도 번역이 점진적으로 나타나게 한다.
+        """
+        if not self.translator or not getattr(self.translator, "enabled", False):
+            return
+        missing: set[str] = set()
+        for region in self.config.enabled_region_ids:
+            items = await asyncio.to_thread(self.storage.get_current_items, region)
+            for it in items:
+                if not it.get("term_ko"):
+                    missing.add(it["term"])
+        if not missing:
+            return
+        pending = list(missing)[: self.translator.max_new]  # 주기당 상한
+        chunk_size = 40
+        saved = 0
+        for i in range(0, len(pending), chunk_size):
+            chunk = pending[i:i + chunk_size]
+            translated = await self.translator.translate(chunk)
+            if translated:
+                await asyncio.to_thread(self.storage.save_translations, translated)
+                saved += len(translated)
+        if saved:
+            log.info("번역 캐시 저장: %d건", saved)
+
     async def _run_one(self, adapter: BaseAdapter) -> str:
         """어댑터 하나를 타임아웃/예외 격리로 실행."""
-        run_id = await asyncio.to_thread(self.storage.start_run, adapter.name)
+        run_id = await asyncio.to_thread(self.storage.start_run, adapter.name, adapter.region)
         collected_at = datetime.now(timezone.utc).isoformat()
         timeout = self.config.per_source_timeout_seconds
         try:
             items = await asyncio.wait_for(adapter.fetch(), timeout=timeout)
+            for it in items:                 # 어댑터의 지역을 각 항목에 stamp
+                it.region = adapter.region
             count = await asyncio.to_thread(
                 self.storage.save_items, run_id, collected_at, items
             )

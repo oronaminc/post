@@ -17,11 +17,12 @@ SOURCE_TYPE_SUSTAINED = "sustained"  # 지속 관심도
 class RawTrendItem:
     """한 소스에서 나온 트렌드 항목 한 건 (정규화 형태)."""
 
-    term: str                       # 트렌드 워드 / 헤드라인
+    term: str                       # 트렌드 워드 / 헤드라인 (원어: 일본어/중국어)
     source: str                     # 소스(어댑터) 이름
     source_type: str                # SOURCE_TYPE_REALTIME | SOURCE_TYPE_SUSTAINED
     category: str                   # 카테고리 id (config의 categories[].id)
     rank: int                       # 소스 내 순위(1부터)
+    region: str = "jp"              # 타겟 지역 id (jp | tw ...) — 컬렉터가 stamp
     metric_label: str = ""          # 지표 이름 (예: "검색량", "tweet", "views", "인기도")
     metric_value: float = 0.0       # 지표 수치 (정렬용)
     url: str = ""                   # 관련 링크

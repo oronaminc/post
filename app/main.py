@@ -1,6 +1,6 @@
 """FastAPI 앱 — REST API + 정적 대시보드 서빙 + 주기 수집 스케줄러.
 
-한 프로세스가 데이터 수집과 웹 서빙을 모두 담당한다.
+한 프로세스가 데이터 수집(지역별)·번역·웹 서빙을 모두 담당한다.
 실행: `python -m app`  (또는 uvicorn app.main:app)
 """
 from __future__ import annotations
@@ -21,6 +21,7 @@ from .collector import Collector
 from .config import DATA_DIR, load_config
 from .http_client import PoliteClient
 from .storage import Storage
+from .translate import Translator
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,7 +36,7 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 async def lifespan(app: FastAPI):
     config = load_config()
     http = PoliteClient(
-        user_agent=config.http.get("user_agent", "JP-Trend-Monitor/1.0"),
+        user_agent=config.http.get("user_agent", "JP-TW-Trend-Monitor/1.1"),
         default_delay=float(config.http.get("default_delay_seconds", 1.5)),
         timeout=float(config.http.get("timeout_seconds", 20)),
         max_retries=int(config.http.get("max_retries", 3)),
@@ -43,7 +44,8 @@ async def lifespan(app: FastAPI):
     )
     storage = Storage(DATA_DIR / "trends.sqlite")
     adapters = build_adapters(config, http)
-    collector = Collector(adapters, storage, config)
+    translator = Translator(config.translation, config.http.get("user_agent", "JP-TW-Trend-Monitor/1.1"))
+    collector = Collector(adapters, storage, config, translator)
 
     app.state.config = config
     app.state.http = http
@@ -51,27 +53,23 @@ async def lifespan(app: FastAPI):
     app.state.adapters = adapters
     app.state.collector = collector
 
-    # 주기 수집 스케줄러
     scheduler = AsyncIOScheduler(timezone="UTC")
     scheduler.add_job(
-        collector.collect_all,
-        "interval",
+        collector.collect_all, "interval",
         seconds=config.refresh_interval_seconds,
-        id="collect_all",
-        max_instances=1,
-        coalesce=True,
+        id="collect_all", max_instances=1, coalesce=True,
     )
     scheduler.start()
     app.state.scheduler = scheduler
 
     if config.run_on_startup:
-        # 첫 데이터를 백그라운드로 즉시 수집 (서버 기동을 막지 않음)
         asyncio.create_task(collector.collect_all())
 
     log.info(
-        "대시보드 준비 완료 — http://%s:%s (갱신 주기 %ds)",
+        "대시보드 준비 완료 — http://%s:%s (지역=%s, 갱신 %ds)",
         config.server.get("host", "127.0.0.1"),
-        config.server.get("port", 8000),
+        config.server.get("port", 8899),
+        ",".join(config.enabled_region_ids),
         config.refresh_interval_seconds,
     )
     try:
@@ -81,7 +79,12 @@ async def lifespan(app: FastAPI):
         await http.aclose()
 
 
-app = FastAPI(title="일본 트렌드 모니터링 대시보드", lifespan=lifespan)
+app = FastAPI(title="일본/대만 트렌드 모니터링 대시보드", lifespan=lifespan)
+
+
+def _default_region() -> str:
+    ids = app.state.config.enabled_region_ids
+    return ids[0] if ids else "jp"
 
 
 # ------------------------------------------------------------------ API
@@ -89,56 +92,66 @@ app = FastAPI(title="일본 트렌드 모니터링 대시보드", lifespan=lifes
 async def api_meta():
     config = app.state.config
     storage: Storage = app.state.storage
+
+    # 소스 메타(지역 중복 제거) — 어떤 소스가 어떤 지역을 서비스하는지
+    src_meta: dict[str, dict] = {}
+    for a in app.state.adapters:
+        m = src_meta.setdefault(a.name, {
+            "name": a.name, "display_name": a.display_name,
+            "risk": a.risk, "source_type": a.default_source_type, "regions": [],
+        })
+        if a.region not in m["regions"]:
+            m["regions"].append(a.region)
+
     return {
+        "regions": [
+            {"id": r["id"], "label": r.get("label", r["id"]), "flag": r.get("flag", "")}
+            for r in config.enabled_regions
+        ],
         "categories": [
-            {"id": c["id"], "label": c.get("label", c["id"]),
-             "label_ja": c.get("label_ja", "")}
+            {"id": c["id"], "label": c.get("label", c["id"]), "label_ja": c.get("label_ja", "")}
             for c in config.categories
         ],
-        "sources": [
-            {"name": a.name, "display_name": a.display_name, "risk": a.risk,
-             "source_type": a.default_source_type}
-            for a in app.state.adapters
-        ],
+        "sources": list(src_meta.values()),
         "refresh_interval_seconds": config.refresh_interval_seconds,
         "last_updated": await asyncio.to_thread(storage.last_updated),
+        "translation_enabled": bool(config.translation.get("enabled", True)),
         "classification": config.classification,
     }
 
 
 @app.get("/api/sources")
-async def api_sources():
+async def api_sources(region: str = Query("", description="지역 필터")):
     storage: Storage = app.state.storage
-    health = await asyncio.to_thread(storage.source_health)
-    # 표시 이름/리스크 매핑 덧붙이기
+    reg = region or _default_region()
+    health = await asyncio.to_thread(storage.source_health, reg)
     meta = {a.name: (a.display_name, a.risk) for a in app.state.adapters}
     for h in health:
         dn, risk = meta.get(h["source"], (h["source"], "?"))
         h["display_name"] = dn
         h["risk"] = risk
-    return {"sources": health}
+    return {"region": reg, "sources": health}
 
 
 @app.get("/api/trends")
 async def api_trends(
+    region: str = Query("", description="지역 id (jp|tw). 빈값=기본 지역"),
     category: str = Query("", description="카테고리 id 필터 (빈값=전체)"),
     view: str = Query("all", description="all | realtime | sustained"),
     source: str = Query("", description="소스 이름 필터"),
-    q: str = Query("", description="검색어(부분일치)"),
+    q: str = Query("", description="검색어(원어/한국어 부분일치)"),
     sort: str = Query("rank", description="rank | change | metric | recency | term"),
     order: str = Query("asc", description="asc | desc"),
 ):
     config = app.state.config
     storage: Storage = app.state.storage
+    reg = region or _default_region()
 
-    items = await asyncio.to_thread(storage.get_current_items)
+    items = await asyncio.to_thread(storage.get_current_items, reg)
     items = enrich(items, config.classification)
-
-    # 카테고리 라벨 부착
     for it in items:
         it["category_label"] = config.category_label(it.get("category", ""))
 
-    # 필터
     ql = q.strip().lower()
     filtered = []
     for it in items:
@@ -148,11 +161,12 @@ async def api_trends(
             continue
         if not matches_view(it, view):
             continue
-        if ql and ql not in (it.get("term", "").lower()):
-            continue
+        if ql:
+            hay = (it.get("term", "") + " " + (it.get("term_ko") or "")).lower()
+            if ql not in hay:
+                continue
         filtered.append(it)
 
-    # 정렬
     reverse = order == "desc"
     keymap = {
         "rank": lambda x: (x.get("source", ""), x.get("rank", 999)),
@@ -162,17 +176,20 @@ async def api_trends(
         "term": lambda x: x.get("term", ""),
     }
     keyfn = keymap.get(sort, keymap["rank"])
-    # change/metric/recency 는 큰 값이 먼저 오는 게 자연스러워 기본 내림차순
     if sort in ("change", "metric", "recency") and order == "asc":
         reverse = True
     filtered.sort(key=keyfn, reverse=reverse)
 
-    return {"count": len(filtered), "items": filtered}
+    return {
+        "region": reg,
+        "count": len(filtered),
+        "last_updated": await asyncio.to_thread(storage.last_updated, reg),
+        "items": filtered,
+    }
 
 
 @app.post("/api/refresh")
 async def api_refresh():
-    """즉시 수집 트리거 (백그라운드)."""
     collector: Collector = app.state.collector
     asyncio.create_task(collector.collect_all())
     return JSONResponse({"status": "started"})
