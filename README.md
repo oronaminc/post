@@ -35,6 +35,22 @@ docker run -p 8899:8000 jp-trend   # → http://127.0.0.1:8899
 
 첫 실행 시 즉시 1회 수집·번역하고, 이후 `config.yaml` 의 `refresh_interval_seconds`(기본 15분)마다 자동 갱신합니다.
 
+### 로컬에서 계속 띄워두기 (백그라운드 상시 실행)
+```bash
+./scripts/service.sh start     # 백그라운드 실행 (터미널 닫아도 유지)
+./scripts/service.sh status    # 실행/응답 상태
+./scripts/service.sh logs      # 로그 보기
+./scripts/service.sh stop      # 중지
+./scripts/service.sh restart   # 재시작
+```
+`start` 는 `nohup` 으로 띄워 **터미널을 닫아도 계속 실행**됩니다(추가 권한 불필요).
+
+> **재부팅 후 자동 시작까지** 원하면 `./scripts/service.sh install-launchd` 를 실행하세요.
+> 단, 이 저장소가 `~/Desktop` 아래라 macOS 프라이버시(TCC) 정책상 **Full Disk Access** 를
+> 해당 파이썬 실행파일에 부여해야 백그라운드 launchd 에이전트가 파일을 읽을 수 있습니다
+> (스크립트가 정확한 경로와 등록 명령을 안내합니다). 권한 부여가 부담되면 저장소를
+> `~/Desktop` 밖(예: `~/apps/post`)으로 옮기면 그 제약이 사라집니다.
+
 ---
 
 ## 화면 기능
