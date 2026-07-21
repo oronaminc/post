@@ -134,10 +134,50 @@ function fmtMetric(item) {
   return `${label} ${num}`.trim();
 }
 
+// ---------- 소스별 그룹 렌더 (각 소스의 1위가 크게 보이도록) ----------
+function renderGrouped(items) {
+  const results = $("#results");
+  results.innerHTML = "";
+  const srcMeta = (name) => state.meta.sources.find((s) => s.name === name) || {};
+  // 소스별 묶기 (API가 이미 source, rank 순으로 정렬해서 줌)
+  const groups = new Map();
+  for (const it of items) {
+    if (!groups.has(it.source)) groups.set(it.source, []);
+    groups.get(it.source).push(it);
+  }
+  // 그룹 순서: 실시간 급상승 먼저, 그 다음 항목 많은 순
+  const ordered = [...groups.entries()].sort((a, b) => {
+    const ta = srcMeta(a[0]).source_type === "realtime" ? 0 : 1;
+    const tb = srcMeta(b[0]).source_type === "realtime" ? 0 : 1;
+    if (ta !== tb) return ta - tb;
+    return b[1].length - a[1].length;
+  });
+  const frag = document.createDocumentFragment();
+  for (const [source, list] of ordered) {
+    const meta = srcMeta(source);
+    const group = el("section", "source-group");
+    const head = el("div", "source-group-head");
+    head.appendChild(el("span", "sg-name", meta.display_name || source));
+    const st = meta.source_type === "realtime" ? "realtime" : "sustained";
+    head.appendChild(el("span", `sg-badge ${st}`,
+      st === "realtime" ? "🔥 실시간" : "📈 지속"));
+    if (meta.risk === "high") head.appendChild(el("span", "sg-risk", "⚠️"));
+    head.appendChild(el("span", "sg-count", `${list.length}건`));
+    group.appendChild(head);
+    const grid = el("div", "source-group-items");
+    for (const it of list) grid.appendChild(renderCard(it));
+    group.appendChild(grid);
+    frag.appendChild(group);
+  }
+  results.appendChild(frag);
+}
+
 // ---------- 카드 ----------
 function renderCard(item) {
-  const card = el("div", `card status-${item.status || item.source_type}`);
-  card.appendChild(el("div", `rank rank-${item.rank}`, `${item.rank}`));
+  const first = item.rank === 1;
+  const card = el("div", `card status-${item.status || item.source_type}${first ? " rank-first" : ""}`);
+  const rankEl = el("div", `rank rank-${item.rank}`, first ? "🥇 1" : `${item.rank}`);
+  card.appendChild(rankEl);
 
   const body = el("div", "card-body");
   const term = el(item.url ? "a" : "span", "term", item.term);
@@ -178,16 +218,25 @@ async function loadTrends() {
     state.lastUpdated = data.last_updated;
     $("#last-updated").textContent = timeAgo(data.last_updated);
     const results = $("#results");
-    results.innerHTML = "";
     if (!data.items.length) {
+      results.innerHTML = "";
       $("#empty-state").classList.remove("hidden");
     } else {
       $("#empty-state").classList.add("hidden");
-      const frag = document.createDocumentFragment();
-      for (const it of data.items) frag.appendChild(renderCard(it));
-      results.appendChild(frag);
+      if (state.sort === "rank") {
+        // 기본(순위)정렬: 소스별로 묶어 각 소스 1위가 잘 보이게
+        renderGrouped(data.items);
+      } else {
+        results.innerHTML = "";
+        results.classList.add("flat");
+        const frag = document.createDocumentFragment();
+        for (const it of data.items) frag.appendChild(renderCard(it));
+        results.appendChild(frag);
+      }
+      if (state.sort === "rank") results.classList.remove("flat");
     }
-    $("#result-meta").textContent = `${data.count}건 표시`;
+    const srcNote = state.source ? " · 소스 필터 적용중" : "";
+    $("#result-meta").textContent = `${data.count}건${srcNote}`;
   } catch (e) {
     $("#result-meta").textContent = `불러오기 실패: ${e.message}`;
   } finally {
@@ -241,6 +290,14 @@ function bind() {
   $("#sort").addEventListener("change", (e) => { state.sort = e.target.value; loadTrends(); });
   $("#source-filter").addEventListener("change", (e) => { state.source = e.target.value; loadTrends(); });
   $("#refresh-btn").addEventListener("click", manualRefresh);
+  $("#reset-filters").addEventListener("click", () => {
+    state.category = ""; state.source = ""; state.view = "all"; state.q = "";
+    $("#search").value = "";
+    $("#source-filter").value = "";
+    for (const btn of $("#view-toggle").children) btn.classList.toggle("active", btn.dataset.view === "all");
+    renderTabs();
+    loadTrends();
+  });
 }
 
 async function init() {

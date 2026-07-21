@@ -110,6 +110,78 @@ categories:
       tw: ["新聞"]
     nhk_cats: ["cat0", "cat6"]
 
+  - id: sports
+    label: 스포츠
+    label_ja: スポーツ
+    news_queries:
+      kr: ["스포츠", "야구", "축구"]
+      jp: ["スポーツ", "野球", "サッカー"]
+      tw: ["體育", "棒球", "籃球"]
+    keywords:
+      kr: ["스포츠"]
+      jp: ["スポーツ"]
+      tw: ["體育"]
+
+  - id: tech
+    label: IT·테크
+    label_ja: テック
+    news_queries:
+      kr: ["IT", "인공지능", "테크"]
+      jp: ["IT", "AI", "テクノロジー"]
+      tw: ["科技", "AI", "半導體"]
+    keywords:
+      kr: ["인공지능"]
+      jp: ["AI"]
+      tw: ["科技"]
+
+  - id: realestate
+    label: 부동산
+    label_ja: 不動産
+    news_queries:
+      kr: ["부동산", "집값"]
+      jp: ["不動産", "住宅"]
+      tw: ["房地產", "房價"]
+    keywords:
+      kr: ["부동산"]
+      jp: ["不動産"]
+      tw: ["房地產"]
+
+  - id: health
+    label: 건강
+    label_ja: 健康
+    news_queries:
+      kr: ["건강", "의료"]
+      jp: ["健康", "医療"]
+      tw: ["健康", "醫療"]
+    keywords:
+      kr: ["건강"]
+      jp: ["健康"]
+      tw: ["健康"]
+
+  - id: world
+    label: 국제
+    label_ja: 国際
+    news_queries:
+      kr: ["국제", "해외"]
+      jp: ["国際", "海外"]
+      tw: ["國際", "國外"]
+    keywords:
+      kr: ["국제"]
+      jp: ["国際"]
+      tw: ["國際"]
+
+  - id: game
+    label: 게임
+    label_ja: ゲーム
+    news_queries:
+      kr: ["게임", "e스포츠"]
+      jp: ["ゲーム", "eスポーツ"]
+      tw: ["遊戲", "電競"]
+    keywords:
+      kr: ["게임"]
+      jp: ["ゲーム"]
+      tw: ["遊戲"]
+
 # -----------------------------------------------------------------------------
 # 데이터 소스 (어댑터)
 #   regions: 이 소스가 서비스하는 지역 목록
@@ -170,9 +242,11 @@ sources:
     feeds:
       cat0: current_affairs
       cat1: current_affairs
+      cat3: tech            # 科学・文化
       cat4: politics
       cat5: economy
-      cat6: current_affairs
+      cat6: world           # 国際
+      cat7: sports          # スポーツ
 
   # ⚠️ 중간 리스크 (제3자 사이트 스크래핑) — 일본 전용(대만판 없음)
   trend_calendar:
@@ -195,6 +269,8 @@ sources:
       - { name: movie,        category: entertainment }
       - { name: Lifeismoney,  category: shopping }
       - { name: C_Chat,       category: trend }
+      - { name: Baseball,     category: sports }
+      - { name: NBA,          category: sports }
 
   # ⚠️⚠️ 높은 리스크 (Yahoo Japan 약관이 자동수집 금지) — 일본 전용
   yahoo_realtime:
@@ -231,7 +307,7 @@ translation:
 # -----------------------------------------------------------------------------
 collection:
   refresh_interval_seconds: 900
-  per_source_timeout_seconds: 60   # 지역 다수 + 소스별 다건 요청 여유
+  per_source_timeout_seconds: 90   # 지역 다수 + 카테고리 다수(소스별 다건 요청) 여유
   retention_days: 14
   run_on_startup: true
 
@@ -250,6 +326,7 @@ http:
     trends.google.com: 2.0
     www.ptt.cc: 2.0
     news.google.com: 0.6        # 신디케이션 RSS — 지역 다수라 요청 간격 축소
+    naverapihub.apigw.ntruss.com: 0.4   # 네이버 공식 API — 카테고리 다수 대응
 
 server:
   host: "127.0.0.1"

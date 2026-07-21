@@ -79,7 +79,17 @@ async def lifespan(app: FastAPI):
         await http.aclose()
 
 
-app = FastAPI(title="일본/대만 트렌드 모니터링 대시보드", lifespan=lifespan)
+app = FastAPI(title="한국/일본/대만 트렌드 모니터링 대시보드", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def _no_cache(request, call_next):
+    """대시보드(정적 자산·인덱스)는 캐시 무효화 → 업데이트 즉시 반영."""
+    resp = await call_next(request)
+    path = request.url.path
+    if path == "/" or path.startswith("/static"):
+        resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return resp
 
 
 def _default_region() -> str:

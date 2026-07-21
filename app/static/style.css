@@ -149,10 +149,41 @@ body {
 .result-meta { color: var(--text-faint); font-size: 0.78rem; padding: 4px 0 12px; }
 
 /* ---------- results grid ---------- */
-.results {
+.results { display: block; }
+.results.flat {
   display: grid; gap: 10px;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 }
+
+/* 소스별 그룹 */
+.source-group { margin-bottom: 22px; }
+.source-group-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 2px 10px; border-bottom: 1px solid var(--border); margin-bottom: 10px;
+  position: sticky; top: 0;
+}
+.sg-name { font-size: 1rem; font-weight: 700; color: var(--text); }
+.sg-badge { font-size: 0.68rem; padding: 2px 9px; border-radius: 999px; font-weight: 700; }
+.sg-badge.realtime { background: var(--rise-soft); color: var(--rise); }
+.sg-badge.sustained { background: var(--sustain-soft); color: var(--sustain); }
+.sg-risk { font-size: 0.8rem; }
+.sg-count { margin-left: auto; font-size: 0.76rem; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.source-group-items {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+/* 각 소스 1위 강조 */
+.card.rank-first {
+  border-color: #d9a441;
+  background: linear-gradient(180deg, rgba(255,209,102,0.10), var(--bg-card) 60%);
+  box-shadow: 0 0 0 1px rgba(217,164,65,0.35), var(--shadow);
+}
+.card.rank-first .rank {
+  color: #e9b949; font-size: 1.2rem; min-width: 40px;
+}
+.card.rank-first .term { font-size: 1.02rem; }
+.source-group-items .card.rank-first { grid-column: 1 / -1; }  /* 1위는 한 줄 전체 폭 */
 .card {
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 12px 14px;
@@ -213,7 +244,12 @@ body {
 
 /* ---------- empty / footer ---------- */
 .empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
-.empty-state .hint { font-size: 0.82rem; color: var(--text-faint); }
+.empty-state .hint { font-size: 0.82rem; color: var(--text-faint); max-width: 460px; margin: 6px auto; }
+.btn-reset {
+  margin-top: 14px; background: var(--accent); color: #fff; border: none;
+  padding: 9px 18px; border-radius: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+}
+.btn-reset:hover { filter: brightness(1.08); }
 .hidden { display: none; }
 
 .app-footer {
