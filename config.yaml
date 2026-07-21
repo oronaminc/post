@@ -150,6 +150,18 @@ sources:
     regions: [kr]
     default_category: trend
 
+  # ✅ 낮은 리스크 (네이버 공식 Open API) — 한국 전용. .env 의 NAVER_CLIENT_ID/SECRET 필요.
+  #   무료 발급: https://developers.naver.com (없으면 graceful, 헬스에 '키 미설정' 표시)
+  naver_news:
+    enabled: true
+    regions: [kr]
+    per_category_limit: 8
+    sort: date               # date(최신) | sim(정확도)
+  naver_datalab:
+    enabled: true
+    regions: [kr]
+    window_days: 30          # 검색어트렌드 집계 기간
+
   # ✅ 낮은 리스크 (NHK 공식 RSS) — 일본 전용
   nhk_rss:
     enabled: true

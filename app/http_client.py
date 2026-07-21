@@ -57,19 +57,26 @@ class PoliteClient:
 
     async def get(self, url: str, **kwargs) -> httpx.Response:
         """호스트별 rate limit + 재시도를 적용한 GET."""
+        return await self._request("GET", url, **kwargs)
+
+    async def post(self, url: str, **kwargs) -> httpx.Response:
+        """호스트별 rate limit + 재시도를 적용한 POST."""
+        return await self._request("POST", url, **kwargs)
+
+    async def _request(self, method: str, url: str, **kwargs) -> httpx.Response:
         host = httpx.URL(url).host or "_"
         async with self._lock_for(host):
             await self._throttle(host)
             try:
-                return await self._get_with_retry(url, **kwargs)
+                return await self._request_with_retry(method, url, **kwargs)
             finally:
                 self._last_request[host] = time.monotonic()
 
-    async def _get_with_retry(self, url: str, **kwargs) -> httpx.Response:
+    async def _request_with_retry(self, method: str, url: str, **kwargs) -> httpx.Response:
         last_exc: Exception | None = None
         for attempt in range(self.max_retries):
             try:
-                resp = await self._client.get(url, **kwargs)
+                resp = await self._client.request(method, url, **kwargs)
                 if resp.status_code in (429, 500, 502, 503, 504):
                     backoff = 2 ** attempt
                     log.warning(

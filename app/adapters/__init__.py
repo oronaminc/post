@@ -13,6 +13,7 @@ from .base import BaseAdapter
 from .google_news_rss import GoogleNewsRssAdapter
 from .google_trends_interest import GoogleTrendsInterestAdapter
 from .google_trends_rss import GoogleTrendsRssAdapter
+from .naver import NaverDataLabAdapter, NaverNewsAdapter
 from .nhk_rss import NhkRssAdapter
 from .ptt_taiwan import PttTaiwanAdapter
 from .signal_bz import SignalBzAdapter
@@ -37,6 +38,8 @@ ADAPTER_REGISTRY: dict[str, type[BaseAdapter]] = {
     YahooRealtimeAdapter.name: YahooRealtimeAdapter,
     PttTaiwanAdapter.name: PttTaiwanAdapter,
     SignalBzAdapter.name: SignalBzAdapter,
+    NaverNewsAdapter.name: NaverNewsAdapter,
+    NaverDataLabAdapter.name: NaverDataLabAdapter,
 }
 
 

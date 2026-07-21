@@ -103,6 +103,8 @@ docker run -p 8899:8000 jp-trend   # → http://127.0.0.1:8899
 | 소스 | 지역 | 수집 방식 | robots.txt(실측) | 리스크 |
 |---|:---:|---|:---:|:---:|
 | **signal.bz 실시간 검색어** | KR | 공개 집계 API(JSON) — 폐지된 네이버/다음 실검 대체 | (공개 API) | 🟢 낮음 — 제3자 집계 서비스 |
+| **네이버 뉴스** | KR | 공식 Open API(검색·뉴스) | 공식 API | 🟢 낮음 — 무료 키 필요 |
+| **네이버 데이터랩(검색트렌드)** | KR | 공식 Open API(검색어트렌드) | 공식 API | 🟢 낮음 — 무료 키 필요 |
 | **Google 트렌드(일간)** | KR·JP·TW | 공개 RSS `trending/rss?geo=KR\|JP\|TW` | ✅ 허용(`/explore?`만 차단) | 🟢 낮음 |
 | **Google 뉴스** | KR·JP·TW | RSS `news.google.com/rss/search` (지역 로케일·언어별 검색어) | ✅ 신디케이션 | 🟢 낮음 |
 | **Google 트렌드(인기도)** | KR·JP·TW | 비공식 `pytrends`, 키워드별 7일 관심도 | (내부 API) | 🟡 중간 — 429 잦음, 미설치/실패 시 자동 degrade |
@@ -113,12 +115,21 @@ docker run -p 8899:8000 jp-trend   # → http://127.0.0.1:8899
 | ~~YouTube 급상승~~ | — | (기본 비활성 — 별도 도구에서 관리) | 공식 API | — |
 
 ### 한국(KR) 소스에 대해
-한국은 **signal.bz 실시간 검색어 + Google 트렌드 KR + Google 뉴스 KR + pytrends KR** 로 커버합니다.
-- ⛔ **네이버/다음 실시간 검색어(실검)는 폐지됐습니다** (네이버 2021.2, 다음 2020). 또한 `news.naver.com`
-  robots.txt 가 `Disallow: /`(전면 금지)라 **네이버를 직접 스크래핑하지 않습니다.**
-- 대신 **signal.bz** 가 여러 포털의 실시간 트렌드를 합법적으로 집계·제공하는 공개 API라, 이걸로
-  "네이버/다음 트렌드"를 대체 커버합니다. (`sources.signal_bz`)
-- 한국어 항목은 이미 한국어라 번역을 건너뜁니다.
+한국은 **네이버 뉴스·데이터랩 + signal.bz 실시간 검색어 + Google 트렌드/뉴스 KR + pytrends KR** 로 커버합니다.
+
+**네이버 (권장, 무료 키 필요)** — 한국은 네이버 검색 점유율이 높아 네이버 데이터가 대표성이 큽니다.
+- ⛔ 네이버는 `robots.txt` 가 `Disallow: /`(전면 금지)이고 뉴스 RSS 도 폐지돼 **스크래핑이 불가**합니다.
+  합법적 경로는 **공식 Open API** 뿐입니다(무료, 개발자 등록).
+- **발급(약 3분)**: [developers.naver.com](https://developers.naver.com) → 로그인 → **Application → 애플리케이션 등록**
+  → 사용 API 에서 **검색** 과 **데이터랩(검색어트렌드)** 선택 → **Client ID / Client Secret** 복사
+  → `.env` 에 `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` 붙여넣고 서버 재시작.
+- 키가 없으면 네이버 소스만 헬스에 **'키 미설정'** 오류로 표시되고 나머지는 정상 동작합니다.
+- 어댑터: `naver_news`(뉴스 검색), `naver_datalab`(검색어트렌드=네이버판 지속 관심도).
+
+**signal.bz (키 불필요)** — ⛔ 네이버/다음 실시간 검색어(실검)는 폐지됐습니다(네이버 2021.2, 다음 2020).
+signal.bz 가 여러 포털의 실시간 트렌드를 합법적으로 집계·제공하는 공개 API라 "실시간 급상승"을 대체 커버합니다.
+
+한국어 항목은 이미 한국어라 번역을 건너뜁니다.
 
 ### 대만(TW) 소스에 대해
 대만은 **Google 트렌드 TW + Google 뉴스 TW(중국어 zh-TW) + pytrends TW + PTT(批踢踢)** 로 커버합니다.
