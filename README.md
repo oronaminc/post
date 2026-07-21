@@ -117,13 +117,15 @@ docker run -p 8899:8000 jp-trend   # → http://127.0.0.1:8899
 ### 한국(KR) 소스에 대해
 한국은 **네이버 뉴스·데이터랩 + signal.bz 실시간 검색어 + Google 트렌드/뉴스 KR + pytrends KR** 로 커버합니다.
 
-**네이버 (권장, 무료 키 필요)** — 한국은 네이버 검색 점유율이 높아 네이버 데이터가 대표성이 큽니다.
+**네이버 (권장, 무료 키 필요 · NCP API Hub)** — 한국은 네이버 검색 점유율이 높아 네이버 데이터가 대표성이 큽니다.
 - ⛔ 네이버는 `robots.txt` 가 `Disallow: /`(전면 금지)이고 뉴스 RSS 도 폐지돼 **스크래핑이 불가**합니다.
-  합법적 경로는 **공식 Open API** 뿐입니다(무료, 개발자 등록).
-- **발급(약 3분)**: [developers.naver.com](https://developers.naver.com) → 로그인 → **Application → 애플리케이션 등록**
-  → 사용 API 에서 **검색** 과 **데이터랩(검색어트렌드)** 선택 → **Client ID / Client Secret** 복사
-  → `.env` 에 `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` 붙여넣고 서버 재시작.
-- 키가 없으면 네이버 소스만 헬스에 **'키 미설정'** 오류로 표시되고 나머지는 정상 동작합니다.
+  합법적 경로는 **공식 API** 뿐이며, 2024년 이후 **NCP API Hub**(ncloud)로 이관되었습니다.
+- **발급/활성화**: [ncloud.com](https://www.ncloud.com) 콘솔 → **API Hub / AI·NAVER API** → 애플리케이션 등록
+  → **검색(뉴스)** 과 **데이터랩(검색어트렌드)** API 를 각각 **활성화/구독** → Client ID / Client Secret 복사
+  → `.env` 의 `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` 에 넣고 서버 재시작.
+- 인증 헤더는 `X-NCP-APIGW-API-KEY-ID` / `X-NCP-APIGW-API-KEY` (엔드포인트·헤더명은 `config.yaml` 로 덮어쓰기 가능).
+- 엔드포인트: 뉴스=`naverapihub.apigw.ntruss.com/search/v1/news`, 데이터랩=`naveropenapi.apigw.ntruss.com/datalab/v1/search`.
+- 키가 없거나 API 미활성 시 네이버 소스만 헬스에 오류(예: "활성화되어 있지 않습니다")로 표시되고 나머지는 정상 동작합니다.
 - 어댑터: `naver_news`(뉴스 검색), `naver_datalab`(검색어트렌드=네이버판 지속 관심도).
 
 **signal.bz (키 불필요)** — ⛔ 네이버/다음 실시간 검색어(실검)는 폐지됐습니다(네이버 2021.2, 다음 2020).

@@ -1,9 +1,13 @@
-"""네이버 공식 Open API — 한국 전용.
+"""네이버 공식 API (NCP API Hub) — 한국 전용.
 
 네이버는 robots.txt 가 전면 Disallow 라 스크래핑이 불가하고, 뉴스 RSS 도 폐지됐다.
-합법적으로 네이버 데이터를 쓰는 유일한 길은 **공식 Open API**다(무료, 개발자 등록 필요).
-  - 발급: https://developers.naver.com → 애플리케이션 등록 → Client ID/Secret
+합법적으로 네이버 데이터를 쓰는 유일한 길은 **공식 API**다.
+2024년 이후 네이버 Open API 는 **NCP API Hub** 로 이관되었다.
+  - 발급/활성화: https://www.ncloud.com → API Hub 에서 애플리케이션 등록 후
+    '검색(뉴스)' 와 '데이터랩(검색어트렌드)' API 를 각각 활성화/구독.
+  - 인증 헤더: X-NCP-APIGW-API-KEY-ID(Client ID) / X-NCP-APIGW-API-KEY(Client Secret)
   - .env 에 NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 를 넣으면 활성화. 없으면 graceful.
+  - 엔드포인트/헤더는 config 에서 덮어쓸 수 있어 향후 이관에도 대응 가능.
 
 두 어댑터:
   · NaverNewsAdapter    : 검색 API(뉴스) — 카테고리별 네이버 뉴스. sustained.
@@ -35,9 +39,12 @@ class _NaverBase(BaseAdapter):
         if not cid or not sec:
             raise RuntimeError(
                 "NAVER_CLIENT_ID/SECRET 미설정 — .env 에 넣으면 활성화됩니다 "
-                "(developers.naver.com 에서 무료 발급)."
+                "(NCP API Hub 에서 발급)."
             )
-        return {"X-Naver-Client-Id": cid, "X-Naver-Client-Secret": sec}
+        # NCP API Hub 인증 헤더 (헤더명은 config 로 덮어쓰기 가능)
+        id_header = self.settings.get("key_id_header", "X-NCP-APIGW-API-KEY-ID")
+        key_header = self.settings.get("key_header", "X-NCP-APIGW-API-KEY")
+        return {id_header: cid, key_header: sec}
 
 
 class NaverNewsAdapter(_NaverBase):
@@ -50,7 +57,10 @@ class NaverNewsAdapter(_NaverBase):
         headers = self._auth_headers()  # 키 없으면 여기서 예외 → 소스만 error
         per_cat = int(self.settings.get("per_category_limit", 8))
         sort = self.settings.get("sort", "date")  # date | sim
+        endpoint = self.settings.get(
+            "endpoint", "https://naverapihub.apigw.ntruss.com/search/v1/news")
         items: list[RawTrendItem] = []
+        last_err: str | None = None
 
         for cat in self.app_config.categories:
             cat_id = cat["id"]
@@ -58,13 +68,15 @@ class NaverNewsAdapter(_NaverBase):
             if not queries:
                 continue
             q = urllib.parse.quote(queries[0])
-            url = (f"https://openapi.naver.com/v1/search/news.json"
-                   f"?query={q}&display={per_cat}&sort={sort}")
+            url = f"{endpoint}?query={q}&display={per_cat}&sort={sort}&format=json"
             try:
                 resp = await self.http.get(url, headers=headers)
-                resp.raise_for_status()
+                if resp.status_code != 200:
+                    last_err = f"HTTP {resp.status_code}: {resp.text[:120]}"
+                    continue
                 data = resp.json()
-            except Exception:
+            except Exception as exc:
+                last_err = str(exc)
                 continue  # 한 카테고리 실패는 건너뜀
             seen: set[str] = set()
             rank = 0
@@ -85,6 +97,9 @@ class NaverNewsAdapter(_NaverBase):
                     url=it.get("link") or it.get("originallink", ""),
                     extra={"pubDate": it.get("pubDate", "")},
                 ))
+        if not items and last_err:
+            # 활성화/구독 안내 등 API 오류를 헬스에 노출
+            raise RuntimeError(f"네이버 뉴스 API 오류 — {last_err}")
         return items
 
 
@@ -96,6 +111,8 @@ class NaverDataLabAdapter(_NaverBase):
 
     async def fetch(self) -> list[RawTrendItem]:
         headers = {**self._auth_headers(), "Content-Type": "application/json"}
+        endpoint = self.settings.get(
+            "endpoint", "https://naveropenapi.apigw.ntruss.com/datalab/v1/search")
         days = int(self.settings.get("window_days", 30))
         end = date.today()
         start = end - timedelta(days=days)
@@ -113,6 +130,7 @@ class NaverDataLabAdapter(_NaverBase):
             return []
 
         scored: list[tuple[str, str, float]] = []  # (groupName, keyword_label, ratio)
+        last_err: str | None = None
         # 데이터랩은 요청당 키워드그룹 최대 5개
         for i in range(0, len(groups), 5):
             batch = groups[i:i + 5]
@@ -123,13 +141,13 @@ class NaverDataLabAdapter(_NaverBase):
                 "keywordGroups": batch,
             }
             try:
-                resp = await self.http.post(
-                    "https://openapi.naver.com/v1/datalab/search",
-                    headers=headers, json=body,
-                )
-                resp.raise_for_status()
+                resp = await self.http.post(endpoint, headers=headers, json=body)
+                if resp.status_code != 200:
+                    last_err = f"HTTP {resp.status_code}: {resp.text[:120]}"
+                    continue
                 data = resp.json()
-            except Exception:
+            except Exception as exc:
+                last_err = str(exc)
                 continue
             for res in data.get("results", []):
                 gname = res.get("title", "")
@@ -137,6 +155,9 @@ class NaverDataLabAdapter(_NaverBase):
                 ratio = float(series[-1].get("ratio", 0.0)) if series else 0.0
                 label = (res.get("keywords") or [gname])[0]
                 scored.append((gname, label, ratio))
+
+        if not scored and last_err:
+            raise RuntimeError(f"네이버 데이터랩 API 오류 — {last_err}")
 
         scored.sort(key=lambda x: x[2], reverse=True)
         items: list[RawTrendItem] = []
