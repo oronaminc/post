@@ -195,17 +195,43 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 }
 
-/* 각 소스 1위 강조 */
+/* 각 소스 1위 = 히어로 카드 (크게 강조) */
 .card.rank-first {
-  border-color: #d9a441;
-  background: linear-gradient(180deg, rgba(255,209,102,0.10), var(--bg-card) 60%);
-  box-shadow: 0 0 0 1px rgba(217,164,65,0.35), var(--shadow);
+  border: 2px solid #e0b13c;
+  background:
+    radial-gradient(1200px 120px at 0% 0%, rgba(255,209,102,0.20), transparent 60%),
+    linear-gradient(180deg, rgba(255,209,102,0.14), var(--bg-card) 55%);
+  box-shadow: 0 0 0 4px rgba(224,177,60,0.18), 0 6px 22px rgba(224,177,60,0.22), var(--shadow);
+  padding: 18px 20px; gap: 16px; align-items: center;
 }
+.card.rank-first::before { width: 5px; background: linear-gradient(#f6c945, #e0902b); }
 .card.rank-first .rank {
-  color: #e9b949; font-size: 1.2rem; min-width: 40px;
+  font-size: 2.5rem; min-width: 56px; line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
 }
-.card.rank-first .term { font-size: 1.02rem; }
+.card.rank-first .term {
+  font-size: 1.3rem; font-weight: 800; -webkit-line-clamp: 3; letter-spacing: -0.01em;
+}
+.card.rank-first .term-ko { font-size: 0.98rem; margin-top: 6px; color: var(--text); }
+.card.rank-first .chip, .card.rank-first .tag { font-size: 0.74rem; padding: 3px 10px; }
+.card.rank-first .change { font-size: 0.82rem; }
+/* '1위' 리본 */
+.card.rank-first { position: relative; }
+.first-tag {
+  position: absolute; top: 10px; right: 12px;
+  background: linear-gradient(135deg, #f6c945, #e0902b); color: #3a2600;
+  font-size: 0.72rem; font-weight: 800; padding: 3px 12px; border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(224,144,43,0.4); letter-spacing: 0.02em;
+}
 .source-group-items .card.rank-first { grid-column: 1 / -1; }  /* 1위는 한 줄 전체 폭 */
+
+@media (prefers-color-scheme: light) {
+  .card.rank-first {
+    background:
+      radial-gradient(1200px 120px at 0% 0%, rgba(240,180,40,0.22), transparent 60%),
+      linear-gradient(180deg, rgba(255,224,150,0.5), var(--bg-card) 55%);
+  }
+}
 .card {
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 12px 14px;

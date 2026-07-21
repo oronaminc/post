@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from .base import BaseAdapter
 from .google_news_rss import GoogleNewsRssAdapter
+from .google_news_top import GoogleNewsTopAdapter
 from .google_trends_interest import GoogleTrendsInterestAdapter
 from .google_trends_rss import GoogleTrendsRssAdapter
 from .naver import NaverDataLabAdapter, NaverNewsAdapter
@@ -31,6 +32,7 @@ log = logging.getLogger("jptrend.adapters")
 ADAPTER_REGISTRY: dict[str, type[BaseAdapter]] = {
     GoogleTrendsRssAdapter.name: GoogleTrendsRssAdapter,
     GoogleNewsRssAdapter.name: GoogleNewsRssAdapter,
+    GoogleNewsTopAdapter.name: GoogleNewsTopAdapter,
     NhkRssAdapter.name: NhkRssAdapter,
     YouTubeTrendingAdapter.name: YouTubeTrendingAdapter,
     TrendCalendarAdapter.name: TrendCalendarAdapter,

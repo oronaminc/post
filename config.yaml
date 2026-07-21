@@ -221,6 +221,17 @@ sources:
     default_category: trend
     max_items: 25
 
+  # ✅ 낮은 리스크 (공개 RSS) — '많이 본/중요' 뉴스 랭킹(키워드X). 3개국 공통
+  google_news_top:
+    enabled: true
+    regions: [kr, jp, tw]
+    locale:
+      kr: { hl: ko,    gl: KR, ceid: "KR:ko" }
+      jp: { hl: ja,    gl: JP, ceid: "JP:ja" }
+      tw: { hl: zh-TW, gl: TW, ceid: "TW:zh-Hant" }
+    max_items: 20
+    default_category: current_affairs
+
   # ✅ 낮은 리스크 (RSS 신디케이션) — 카테고리 뉴스 커버, 3개국 공통
   google_news_rss:
     enabled: true

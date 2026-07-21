@@ -203,8 +203,9 @@ function renderGrouped(items) {
 function renderCard(item) {
   const first = item.rank === 1;
   const card = el("div", `card status-${item.status || item.source_type}${first ? " rank-first" : ""}`);
-  const rankEl = el("div", `rank rank-${item.rank}`, first ? "🥇 1" : `${item.rank}`);
+  const rankEl = el("div", `rank rank-${item.rank}`, first ? "🥇" : `${item.rank}`);
   card.appendChild(rankEl);
+  if (first) card.appendChild(el("span", "first-tag", "1위"));
 
   const body = el("div", "card-body");
   const term = el(item.url ? "a" : "span", "term", item.term);

@@ -106,6 +106,7 @@ docker run -p 8899:8000 jp-trend   # → http://127.0.0.1:8899
 | **네이버 뉴스** | KR | 공식 Open API(검색·뉴스) | 공식 API | 🟢 낮음 — 무료 키 필요 |
 | **네이버 데이터랩(검색트렌드)** | KR | 공식 Open API(검색어트렌드) | 공식 API | 🟢 낮음 — 무료 키 필요 |
 | **Google 트렌드(일간)** | KR·JP·TW | 공개 RSS `trending/rss?geo=KR\|JP\|TW` | ✅ 허용(`/explore?`만 차단) | 🟢 낮음 |
+| **Google 뉴스 톱스토리** | KR·JP·TW | 공개 RSS 메인 피드 — 키워드X, **인기/중요도 랭킹**('많이 본 뉴스'에 근접) | ✅ 신디케이션 | 🟢 낮음 |
 | **Google 뉴스** | KR·JP·TW | RSS `news.google.com/rss/search` (지역 로케일·언어별 검색어) | ✅ 신디케이션 | 🟢 낮음 |
 | **Google 트렌드(인기도)** | KR·JP·TW | 비공식 `pytrends`, 키워드별 7일 관심도 | (내부 API) | 🟡 중간 — 429 잦음, 미설치/실패 시 자동 degrade |
 | **NHK 뉴스** | JP | 공식 RSS(`.nhk` 도메인 리다이렉트 자동 추적) | 공식 제공 | 🟢 낮음 |
