@@ -38,6 +38,14 @@ class Translator:
         self.timeout = float(settings.get("timeout_seconds", 10))
         self.user_agent = user_agent
 
+    def needs_translation(self, term: str) -> bool:
+        """번역이 필요한 워드인가? (빈값·이미 목표언어면 False)"""
+        if not term or not term.strip():
+            return False
+        if self.target == "ko" and _mostly_korean(term):
+            return False
+        return True
+
     async def _translate_one(self, client: httpx.AsyncClient, term: str) -> str | None:
         params = {"client": "gtx", "sl": "auto", "tl": self.target, "dt": "t", "q": term}
         try:

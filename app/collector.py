@@ -71,7 +71,9 @@ class Collector:
         for region in self.config.enabled_region_ids:
             items = await asyncio.to_thread(self.storage.get_current_items, region)
             for it in items:
-                if not it.get("term_ko"):
+                # 이미 번역돼 있거나(term_ko) 번역이 불필요한(한국어 등) 워드는 제외
+                # → 상한(max_new)이 실제 번역 대상에만 적용되게.
+                if not it.get("term_ko") and self.translator.needs_translation(it["term"]):
                     missing.add(it["term"])
         if not missing:
             return

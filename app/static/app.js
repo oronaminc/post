@@ -134,6 +134,32 @@ function fmtMetric(item) {
   return `${label} ${num}`.trim();
 }
 
+// ---------- 각 소스 1위 요약 (소스 많을 때 1위만 한눈에) ----------
+function renderTopPicks(ordered, srcMeta) {
+  const bar = $("#top-picks");
+  bar.innerHTML = "";
+  if (ordered.length < 2) { bar.classList.add("hidden"); return; }
+  bar.classList.remove("hidden");
+  bar.appendChild(el("div", "tp-title", `🥇 소스별 1위 (${ordered.length}곳)`));
+  const row = el("div", "tp-row");
+  for (const [source, list] of ordered) {
+    const meta = srcMeta(source);
+    const top = list[0];
+    const chip = el("button", `tp-chip ${meta.source_type === "realtime" ? "rt" : "su"}`);
+    chip.appendChild(el("span", "tp-src", meta.display_name || source));
+    const ko = top.term_ko && top.term_ko.trim() && top.term_ko.trim() !== top.term.trim();
+    chip.appendChild(el("span", "tp-term", ko ? top.term_ko : top.term));
+    chip.title = ko ? `${top.term}\n→ ${top.term_ko}` : top.term;
+    chip.onclick = () => {
+      state.source = state.source === source ? "" : source;
+      $("#source-filter").value = state.source;
+      loadTrends();
+    };
+    row.appendChild(chip);
+  }
+  bar.appendChild(row);
+}
+
 // ---------- 소스별 그룹 렌더 (각 소스의 1위가 크게 보이도록) ----------
 function renderGrouped(items) {
   const results = $("#results");
@@ -152,6 +178,7 @@ function renderGrouped(items) {
     if (ta !== tb) return ta - tb;
     return b[1].length - a[1].length;
   });
+  renderTopPicks(ordered, srcMeta);
   const frag = document.createDocumentFragment();
   for (const [source, list] of ordered) {
     const meta = srcMeta(source);
@@ -220,20 +247,22 @@ async function loadTrends() {
     const results = $("#results");
     if (!data.items.length) {
       results.innerHTML = "";
+      $("#top-picks").classList.add("hidden");
       $("#empty-state").classList.remove("hidden");
     } else {
       $("#empty-state").classList.add("hidden");
       if (state.sort === "rank") {
         // 기본(순위)정렬: 소스별로 묶어 각 소스 1위가 잘 보이게
+        results.classList.remove("flat");
         renderGrouped(data.items);
       } else {
+        $("#top-picks").classList.add("hidden");
         results.innerHTML = "";
         results.classList.add("flat");
         const frag = document.createDocumentFragment();
         for (const it of data.items) frag.appendChild(renderCard(it));
         results.appendChild(frag);
       }
-      if (state.sort === "rank") results.classList.remove("flat");
     }
     const srcNote = state.source ? " · 소스 필터 적용중" : "";
     $("#result-meta").textContent = `${data.count}건${srcNote}`;
