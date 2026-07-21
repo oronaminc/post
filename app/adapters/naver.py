@@ -112,7 +112,7 @@ class NaverDataLabAdapter(_NaverBase):
     async def fetch(self) -> list[RawTrendItem]:
         headers = {**self._auth_headers(), "Content-Type": "application/json"}
         endpoint = self.settings.get(
-            "endpoint", "https://naveropenapi.apigw.ntruss.com/datalab/v1/search")
+            "endpoint", "https://naverapihub.apigw.ntruss.com/search-trend/v1/search")
         days = int(self.settings.get("window_days", 30))
         end = date.today()
         start = end - timedelta(days=days)
