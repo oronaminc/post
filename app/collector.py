@@ -42,10 +42,11 @@ class Collector:
             )
             summary: dict[str, str] = {}
             for adapter, res in zip(self.adapters, results):
+                key = f"{adapter.name}@{adapter.region}"
                 if isinstance(res, Exception):
-                    summary[adapter.name] = f"error: {res}"
+                    summary[key] = f"error: {res}"
                 else:
-                    summary[adapter.name] = res
+                    summary[key] = res
             # 현재 표시될 트렌드 워드 중 미번역분을 한국어로 번역(캐시)
             try:
                 await self._translate_current()

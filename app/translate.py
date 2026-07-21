@@ -20,6 +20,15 @@ log = logging.getLogger("jptrend.translate")
 GTX_URL = "https://translate.googleapis.com/translate_a/single"
 
 
+def _mostly_korean(text: str) -> bool:
+    """글자의 절반 이상이 한글이면 이미 한국어로 간주(번역 불필요)."""
+    letters = [c for c in text if c.isalpha()]
+    if not letters:
+        return False
+    hangul = sum(1 for c in letters if "가" <= c <= "힣")
+    return hangul / len(letters) >= 0.5
+
+
 class Translator:
     def __init__(self, settings: dict, user_agent: str):
         self.enabled = bool(settings.get("enabled", True))
@@ -46,8 +55,12 @@ class Translator:
         """미번역 term 리스트 → {term: 한국어}. 실패 term은 생략."""
         if not self.enabled:
             return {}
-        # 중복 제거 + 상한
-        uniq = [t for t in dict.fromkeys(terms) if t and t.strip()][: self.max_new]
+        # 중복 제거 + 이미 한국어인 워드 제외(target=ko) + 상한
+        skip_korean = self.target == "ko"
+        uniq = [
+            t for t in dict.fromkeys(terms)
+            if t and t.strip() and not (skip_korean and _mostly_korean(t))
+        ][: self.max_new]
         if not uniq:
             return {}
         sem = asyncio.Semaphore(self.concurrency)

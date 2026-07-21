@@ -1,15 +1,17 @@
 # =============================================================================
-#  일본/대만 트렌드 모니터링 대시보드 설정
+#  한국/일본/대만 트렌드 모니터링 대시보드 설정
 #  - 지역(regions), 카테고리(categories), 데이터 소스(sources)를 여기서 관리.
-#  - 변경 후에는 서버를 재시작하세요.
+#  - 변경 후에는 서버를 재시작하세요. (./scripts/service.sh restart)
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# 지역(타겟) — UI 상단에서 전환. 지역을 추가하려면 항목을 하나 더 넣고
-#   각 소스의 regions/geo/locale, 카테고리의 news_queries/keywords에
-#   해당 지역 키를 추가하면 됩니다.
+# 지역(타겟) — UI 상단에서 전환. 첫 항목이 기본 지역.
 # -----------------------------------------------------------------------------
 regions:
+  - id: kr
+    label: 한국
+    flag: "🇰🇷"
+    enabled: true
   - id: jp
     label: 일본
     flag: "🇯🇵"
@@ -20,18 +22,19 @@ regions:
     enabled: true
 
 # -----------------------------------------------------------------------------
-# 카테고리 (지역 공통 id, 검색어만 지역별로)
-#   news_queries / keywords 는 지역별 딕셔너리: {jp: [...], tw: [...]}
-#   nhk_cats 는 일본 전용(있으면 NHK RSS 매핑에 사용)
+# 카테고리 (지역 공통 id, 검색어만 지역별로: {kr:[...], jp:[...], tw:[...]})
+#   nhk_cats 는 일본 전용
 # -----------------------------------------------------------------------------
 categories:
   - id: subsidy
     label: 보조금
     label_ja: 補助金
     news_queries:
+      kr: ["보조금", "지원금", "재난지원금"]
       jp: ["補助金", "給付金", "助成金"]
       tw: ["補助", "補貼", "津貼"]
     keywords:
+      kr: ["보조금"]
       jp: ["補助金"]
       tw: ["補助"]
 
@@ -39,9 +42,11 @@ categories:
     label: 연예
     label_ja: 芸能
     news_queries:
+      kr: ["연예", "아이돌", "K팝"]
       jp: ["芸能", "エンタメ"]
       tw: ["娛樂", "藝人", "明星"]
     keywords:
+      kr: ["연예"]
       jp: ["芸能"]
       tw: ["藝人"]
 
@@ -49,9 +54,11 @@ categories:
     label: 정치
     label_ja: 政治
     news_queries:
+      kr: ["정치"]
       jp: ["政治"]
       tw: ["政治", "選舉"]
     keywords:
+      kr: ["정치"]
       jp: ["政治"]
       tw: ["政治"]
     nhk_cats: ["cat4"]
@@ -60,17 +67,20 @@ categories:
     label: 쇼핑
     label_ja: ショッピング
     news_queries:
+      kr: ["쇼핑", "할인", "세일"]
       jp: ["セール", "通販", "ショッピング"]
       tw: ["購物", "特賣", "折扣"]
     keywords:
+      kr: ["쇼핑"]
       jp: ["セール"]
       tw: ["購物"]
 
   - id: trend
     label: 트렌드
     label_ja: トレンド
-    # 실시간 급상승(Google 트렌드 등)이 주로 채웁니다.
+    # 실시간 급상승(signal.bz / Google 트렌드 등)이 주로 채웁니다.
     keywords:
+      kr: ["트렌드"]
       jp: ["トレンド"]
       tw: ["熱門"]
 
@@ -78,9 +88,11 @@ categories:
     label: 경제
     label_ja: 経済
     news_queries:
+      kr: ["경제", "주가", "환율"]
       jp: ["経済"]
       tw: ["經濟", "股市"]
     keywords:
+      kr: ["경제", "주가"]
       jp: ["経済", "株価"]
       tw: ["經濟", "股市"]
     nhk_cats: ["cat5"]
@@ -89,9 +101,11 @@ categories:
     label: 시사
     label_ja: 時事
     news_queries:
+      kr: ["뉴스", "시사"]
       jp: ["ニュース", "時事"]
       tw: ["新聞", "時事"]
     keywords:
+      kr: ["뉴스"]
       jp: ["ニュース"]
       tw: ["新聞"]
     nhk_cats: ["cat0", "cat6"]
@@ -102,32 +116,39 @@ categories:
 #   enabled: false 면 수집 안 함. ⚠️는 이용약관/차단 리스크(README 참고)
 # -----------------------------------------------------------------------------
 sources:
-  # ✅ 낮은 리스크 (공개 RSS) — 일본/대만 공통
+  # ✅ 낮은 리스크 (공개 RSS) — 한국/일본/대만 공통
   google_trends_rss:
     enabled: true
-    regions: [jp, tw]
-    geo: { jp: JP, tw: TW }
+    regions: [kr, jp, tw]
+    geo: { kr: KR, jp: JP, tw: TW }
     default_category: trend
     max_items: 25
 
-  # ✅ 낮은 리스크 (RSS 신디케이션) — 카테고리 뉴스 커버, 일본/대만 공통
+  # ✅ 낮은 리스크 (RSS 신디케이션) — 카테고리 뉴스 커버, 3개국 공통
   google_news_rss:
     enabled: true
-    regions: [jp, tw]
+    regions: [kr, jp, tw]
     per_category_limit: 12
     locale:
+      kr: { hl: ko,    gl: KR, ceid: "KR:ko" }
       jp: { hl: ja,    gl: JP, ceid: "JP:ja" }
       tw: { hl: zh-TW, gl: TW, ceid: "TW:zh-Hant" }
 
-  # ⚠️ 중간 리스크 (비공식 pytrends) — 지속 관심도, 일본/대만 공통
+  # ⚠️ 중간 리스크 (비공식 pytrends) — 지속 관심도, 3개국 공통
   google_trends_interest:
     enabled: true
-    regions: [jp, tw]
-    geo: { jp: JP, tw: TW }
-    hl:  { jp: ja-JP, tw: zh-TW }
+    regions: [kr, jp, tw]
+    geo: { kr: KR, jp: JP, tw: TW }
+    hl:  { kr: ko,   jp: ja-JP, tw: zh-TW }
     timeframe: "now 7-d"
     max_keywords: 8
     batch_sleep_seconds: 2
+
+  # ✅ 낮은 리스크 (공개 집계 API) — 한국 전용, 실시간 검색어(네이버/다음 실검 대체)
+  signal_bz:
+    enabled: true
+    regions: [kr]
+    default_category: trend
 
   # ✅ 낮은 리스크 (NHK 공식 RSS) — 일본 전용
   nhk_rss:
@@ -150,22 +171,20 @@ sources:
     max_items: 30
 
   # ⚠️ 중간 리스크 (PTT 커뮤니티 스크래핑) — 대만 전용 현지 소셜 트렌드
-  #   게시판 → 카테고리 매핑. over18 게시판도 공개 연령확인 쿠키만 사용.
   ptt_taiwan:
     enabled: true
     regions: [tw]
     per_board_limit: 8
-    min_push: 10             # 추천수 이상만(=지금 뜨는 글). 낮추면 더 많이 노출
+    min_push: 10
     boards:
-      - { name: Gossiping,    category: current_affairs }   # 八卦(시사·일반)
-      - { name: HatePolitics, category: politics }          # 政黑(정치)
-      - { name: Stock,        category: economy }           # 股票(경제)
-      - { name: movie,        category: entertainment }     # 電影(연예/영화)
-      - { name: Lifeismoney,  category: shopping }          # 省錢(쇼핑·특가)
-      - { name: C_Chat,       category: trend }             # ACG 잡담(일반 화제)
+      - { name: Gossiping,    category: current_affairs }
+      - { name: HatePolitics, category: politics }
+      - { name: Stock,        category: economy }
+      - { name: movie,        category: entertainment }
+      - { name: Lifeismoney,  category: shopping }
+      - { name: C_Chat,       category: trend }
 
   # ⚠️⚠️ 높은 리스크 (Yahoo Japan 약관이 자동수집 금지) — 일본 전용
-  #   끄려면 enabled: false. (대만에는 적용하지 않음)
   yahoo_realtime:
     enabled: true
     regions: [jp]
@@ -173,7 +192,6 @@ sources:
     max_items: 30
 
   # ⏸️ 비활성 — YouTube는 별도 도구에서 관리 중이라 이 대시보드에서는 끔.
-  #    다시 켜려면 enabled: true 로 바꾸고 .env 에 YOUTUBE_API_KEY 를 넣으면 됩니다.
   youtube_trending:
     enabled: false
     regions: [jp]
@@ -186,15 +204,14 @@ sources:
     default_category: trend
 
 # -----------------------------------------------------------------------------
-# 번역 (트렌드 워드 → 한국어)
+# 번역 (트렌드 워드 → 한국어). 한국(kr) 항목은 이미 한국어라 번역돼도 동일하면 표시 안 함.
 #   무료·키 불필요(비공식 Google 엔드포인트). 같은 워드는 캐시로 1회만 번역.
-#   끄려면 enabled: false (원어만 표시).
 # -----------------------------------------------------------------------------
 translation:
   enabled: true
   target_lang: ko
-  max_new_per_cycle: 300     # 한 수집 주기당 새로 번역할 최대 워드 수(과호출 방지)
-  concurrency: 5             # 동시 번역 요청 수
+  max_new_per_cycle: 300
+  concurrency: 5
   timeout_seconds: 10
 
 # -----------------------------------------------------------------------------
@@ -202,7 +219,7 @@ translation:
 # -----------------------------------------------------------------------------
 collection:
   refresh_interval_seconds: 900
-  per_source_timeout_seconds: 30
+  per_source_timeout_seconds: 60   # 지역 다수 + 소스별 다건 요청 여유
   retention_days: 14
   run_on_startup: true
 
@@ -211,7 +228,7 @@ classification:
   persist_min_hours: 6
 
 http:
-  user_agent: "JP-TW-Trend-Monitor/1.1 (local research dashboard; +https://github.com/oronaminc/post)"
+  user_agent: "KR-JP-TW-Trend-Monitor/1.2 (local research dashboard; +https://github.com/oronaminc/post)"
   default_delay_seconds: 1.5
   timeout_seconds: 20
   max_retries: 3
@@ -220,6 +237,7 @@ http:
     jp.trend-calendar.com: 3.0
     trends.google.com: 2.0
     www.ptt.cc: 2.0
+    news.google.com: 0.6        # 신디케이션 RSS — 지역 다수라 요청 간격 축소
 
 server:
   host: "127.0.0.1"
