@@ -30,12 +30,17 @@ class BaseAdapter(ABC):
     display_name: str = "Base"
     #: 이용약관/차단 리스크 등급 (low | medium | high) — 대시보드/헬스 표시용
     risk: str = "low"
+    #: 파생 소스 여부. True면 1차 소스 수집이 끝난 뒤(2단계) 실행되어
+    #: storage 의 현재 결과(뉴스·급상승 워드)를 재료로 쓴다.
+    derived: bool = False
 
-    def __init__(self, settings: dict, http: "PoliteClient", app_config: "AppConfig", region: str = "jp"):
+    def __init__(self, settings: dict, http: "PoliteClient", app_config: "AppConfig",
+                 region: str = "jp", storage=None):
         self.settings = settings or {}
         self.http = http
         self.app_config = app_config
         self.region = region
+        self.storage = storage  # 일부 어댑터가 다른 소스의 현재 트렌드를 참조할 때 사용
 
     @property
     def enabled(self) -> bool:

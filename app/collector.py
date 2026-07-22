@@ -35,13 +35,18 @@ class Collector:
     async def collect_all(self) -> dict[str, str]:
         """모든 어댑터를 동시에 격리 실행. 소스명 -> 상태 요약 반환."""
         async with self._lock:
-            log.info("수집 시작: %d개 소스", len(self.adapters))
-            results = await asyncio.gather(
-                *(self._run_one(a) for a in self.adapters),
-                return_exceptions=True,  # 이중 안전장치
-            )
+            # 1차 소스 먼저, 그 결과를 재료로 쓰는 파생 소스는 2차로 실행
+            primary = [a for a in self.adapters if not a.derived]
+            derived = [a for a in self.adapters if a.derived]
+            log.info("수집 시작: 1차 %d개 · 파생 %d개", len(primary), len(derived))
+            r1 = await asyncio.gather(
+                *(self._run_one(a) for a in primary), return_exceptions=True)
+            r2 = await asyncio.gather(
+                *(self._run_one(a) for a in derived), return_exceptions=True)
+            ordered = primary + derived
+            results = list(r1) + list(r2)
             summary: dict[str, str] = {}
-            for adapter, res in zip(self.adapters, results):
+            for adapter, res in zip(ordered, results):
                 key = f"{adapter.name}@{adapter.region}"
                 if isinstance(res, Exception):
                     summary[key] = f"error: {res}"

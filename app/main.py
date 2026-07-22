@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI):
         host_delays=config.http.get("host_delays", {}),
     )
     storage = Storage(DATA_DIR / "trends.sqlite")
-    adapters = build_adapters(config, http)
+    adapters = build_adapters(config, http, storage)
     translator = Translator(config.translation, config.http.get("user_agent", "JP-TW-Trend-Monitor/1.1"))
     collector = Collector(adapters, storage, config, translator)
 

@@ -16,12 +16,13 @@
 """
 from __future__ import annotations
 
+import asyncio
 import html
 import re
 import urllib.parse
 from datetime import date, timedelta
 
-from ..models import RawTrendItem, SOURCE_TYPE_SUSTAINED
+from ..models import RawTrendItem, SOURCE_TYPE_REALTIME, SOURCE_TYPE_SUSTAINED
 from .base import BaseAdapter
 
 _TAG_RE = re.compile(r"<[^>]+>")
@@ -104,41 +105,82 @@ class NaverNewsAdapter(_NaverBase):
 
 
 class NaverDataLabAdapter(_NaverBase):
+    """급상승 워드(signal.bz·Google 트렌드)를 네이버 데이터랩에 넣어
+    **그 워드들의 네이버 검색 관심도**를 보여준다. → '네이버에서 실제로 많이 보는 것'.
+
+    파생 소스(derived): 1차 급상승 소스가 수집된 뒤 그 워드를 재료로 쓴다.
+    앵커 키워드 대비 정규화로 배치 간 값을 비교 가능하게 만든다.
+    """
     name = "naver_datalab"
-    display_name = "네이버 데이터랩(검색트렌드)"
-    default_source_type = SOURCE_TYPE_SUSTAINED
+    display_name = "네이버 검색관심도(급상승)"
+    default_source_type = SOURCE_TYPE_REALTIME
     risk = "low"
+    derived = True
+
+    def _trending_terms(self) -> tuple[list[str], dict[str, str]]:
+        """급상승 소스의 현재 워드 목록 + 워드별 카테고리."""
+        if not self.storage:
+            return [], {}
+        srcs = set(self.settings.get("trend_sources", ["signal_bz", "google_trends_rss"]))
+        max_terms = int(self.settings.get("max_terms", 16))
+        max_len = int(self.settings.get("max_term_len", 20))
+        try:
+            rows = self.storage.get_current_items(self.region)
+        except Exception:
+            return [], {}
+        rows = sorted(rows, key=lambda r: (r.get("source", ""), r.get("rank", 999)))
+        terms: list[str] = []
+        cat: dict[str, str] = {}
+        for r in rows:
+            if r.get("source") not in srcs:
+                continue
+            t = (r.get("term") or "").strip()
+            if not t or len(t) > max_len or t in cat:
+                continue
+            cat[t] = r.get("category", "trend")
+            terms.append(t)
+            if len(terms) >= max_terms:
+                break
+        return terms, cat
+
+    def _category_keywords(self) -> tuple[list[str], dict[str, str]]:
+        """콜드스타트 폴백: 카테고리 대표 키워드."""
+        terms: list[str] = []
+        cat: dict[str, str] = {}
+        for c in self.app_config.categories:
+            kws = self.app_config.keywords(c["id"], self.region)
+            if kws and kws[0] not in cat:
+                cat[kws[0]] = c["id"]
+                terms.append(kws[0])
+        return terms, cat
 
     async def fetch(self) -> list[RawTrendItem]:
         headers = {**self._auth_headers(), "Content-Type": "application/json"}
         endpoint = self.settings.get(
             "endpoint", "https://naverapihub.apigw.ntruss.com/search-trend/v1/search")
         days = int(self.settings.get("window_days", 30))
+        anchor = self.settings.get("anchor_keyword", "뉴스")
         end = date.today()
         start = end - timedelta(days=days)
 
-        # 카테고리 키워드로 키워드그룹 구성 (그룹명=카테고리 id)
-        groups: list[dict] = []
-        group_cat: dict[str, str] = {}
-        for cat in self.app_config.categories:
-            kws = self.app_config.keywords(cat["id"], self.region)
-            if not kws:
-                continue
-            groups.append({"groupName": cat["id"], "keywords": kws[:5]})
-            group_cat[cat["id"]] = cat["id"]
-        if not groups:
+        terms, term_cat = await asyncio.to_thread(self._trending_terms)  # storage IO
+        if not terms:
+            terms, term_cat = self._category_keywords()  # 콜드스타트 폴백
+        if not terms:
             return []
 
-        scored: list[tuple[str, str, float]] = []  # (groupName, keyword_label, ratio)
+        # 앵커 1개 + 워드 4개씩 요청 → 앵커 대비 정규화로 배치 간 비교 가능
+        scored: list[tuple[str, str, float]] = []
         last_err: str | None = None
-        # 데이터랩은 요청당 키워드그룹 최대 5개
-        for i in range(0, len(groups), 5):
-            batch = groups[i:i + 5]
+        for i in range(0, len(terms), 4):
+            chunk = terms[i:i + 4]
+            groups = [{"groupName": anchor, "keywords": [anchor]}]
+            groups += [{"groupName": t, "keywords": [t]} for t in chunk]
             body = {
                 "startDate": start.isoformat(),
                 "endDate": end.isoformat(),
                 "timeUnit": "date",
-                "keywordGroups": batch,
+                "keywordGroups": groups,
             }
             try:
                 resp = await self.http.post(endpoint, headers=headers, json=body)
@@ -149,28 +191,31 @@ class NaverDataLabAdapter(_NaverBase):
             except Exception as exc:
                 last_err = str(exc)
                 continue
+            ratios: dict[str, float] = {}
             for res in data.get("results", []):
-                gname = res.get("title", "")
                 series = res.get("data", []) or []
-                ratio = float(series[-1].get("ratio", 0.0)) if series else 0.0
-                label = (res.get("keywords") or [gname])[0]
-                scored.append((gname, label, ratio))
+                ratios[res.get("title", "")] = float(series[-1].get("ratio", 0.0)) if series else 0.0
+            base = ratios.get(anchor, 0.0)
+            for t in chunk:
+                r = ratios.get(t, 0.0)
+                score = (r / base * 100.0) if base > 0 else r
+                scored.append((t, term_cat.get(t, "trend"), round(score, 1)))
 
         if not scored and last_err:
             raise RuntimeError(f"네이버 데이터랩 API 오류 — {last_err}")
 
         scored.sort(key=lambda x: x[2], reverse=True)
         items: list[RawTrendItem] = []
-        for rank, (gname, label, ratio) in enumerate(scored, start=1):
+        for rank, (term, cat, score) in enumerate(scored, start=1):
             items.append(RawTrendItem(
-                term=label,
+                term=term,
                 source=self.name,
-                source_type=SOURCE_TYPE_SUSTAINED,
-                category=self._safe_category(group_cat.get(gname, "trend")),
+                source_type=SOURCE_TYPE_REALTIME,
+                category=self._safe_category(cat),
                 rank=rank,
                 metric_label="네이버검색",
-                metric_value=round(ratio, 1),
-                url=f"https://search.naver.com/search.naver?query={urllib.parse.quote(label)}",
-                extra={"window_days": days},
+                metric_value=score,
+                url=f"https://search.naver.com/search.naver?query={urllib.parse.quote(term)}",
+                extra={"vs_anchor": anchor},
             ))
         return items

@@ -15,6 +15,7 @@ from .google_news_top import GoogleNewsTopAdapter
 from .google_trends_interest import GoogleTrendsInterestAdapter
 from .google_trends_rss import GoogleTrendsRssAdapter
 from .naver import NaverDataLabAdapter, NaverNewsAdapter
+from .news_keywords import NewsKeywordsAdapter
 from .nhk_rss import NhkRssAdapter
 from .ptt_taiwan import PttTaiwanAdapter
 from .signal_bz import SignalBzAdapter
@@ -42,10 +43,11 @@ ADAPTER_REGISTRY: dict[str, type[BaseAdapter]] = {
     SignalBzAdapter.name: SignalBzAdapter,
     NaverNewsAdapter.name: NaverNewsAdapter,
     NaverDataLabAdapter.name: NaverDataLabAdapter,
+    NewsKeywordsAdapter.name: NewsKeywordsAdapter,
 }
 
 
-def build_adapters(config: "AppConfig", http: "PoliteClient") -> list[BaseAdapter]:
+def build_adapters(config: "AppConfig", http: "PoliteClient", storage=None) -> list[BaseAdapter]:
     """config.sources × regions 를 보고 enabled 인 어댑터를 지역별로 인스턴스화."""
     adapters: list[BaseAdapter] = []
     enabled_regions = config.enabled_region_ids
@@ -62,6 +64,7 @@ def build_adapters(config: "AppConfig", http: "PoliteClient") -> list[BaseAdapte
         for region in source_regions:
             if region not in enabled_regions:
                 continue
-            adapters.append(cls(settings, http, config, region))
-            log.info("소스 '%s' 활성화 [%s] (risk=%s)", name, region, cls.risk)
+            adapters.append(cls(settings, http, config, region, storage))
+            log.info("소스 '%s' 활성화 [%s] (risk=%s%s)", name, region, cls.risk,
+                     ", 파생" if cls.derived else "")
     return adapters

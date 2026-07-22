@@ -232,6 +232,15 @@ sources:
     max_items: 20
     default_category: current_affairs
 
+  # ✅ 파생·무네트워크 — 여러 매체가 동시에 다룬 '키워드'를 문서빈도로 랭킹(3개국)
+  #   단독기사 1건보다 '여러 곳에서 다뤄진 주제'가 상위로. 뉴스가 수집된 뒤 집계.
+  news_keywords:
+    enabled: true
+    regions: [kr, jp, tw]
+    min_articles: 3          # 최소 몇 개 기사에서 다뤄야 키워드로 인정
+    max_items: 25
+    # news_sources: [google_news_rss, google_news_top, naver_news, nhk_rss]
+
   # ✅ 낮은 리스크 (RSS 신디케이션) — 카테고리 뉴스 커버, 3개국 공통
   google_news_rss:
     enabled: true
@@ -265,10 +274,14 @@ sources:
     regions: [kr]
     per_category_limit: 8
     sort: date               # date(최신) | sim(정확도)
+  # 급상승 워드(signal.bz·Google 트렌드)를 데이터랩에 넣어 '네이버 검색 관심도'로 랭킹(파생)
   naver_datalab:
     enabled: true
     regions: [kr]
     window_days: 30          # 검색어트렌드 집계 기간
+    anchor_keyword: 뉴스      # 배치 간 비교용 기준 키워드
+    max_terms: 16            # 관심도 측정할 급상승 워드 수
+    # trend_sources: [signal_bz, google_trends_rss]
 
   # ✅ 낮은 리스크 (NHK 공식 RSS) — 일본 전용
   nhk_rss:
