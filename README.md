@@ -35,6 +35,13 @@ docker run -p 8899:8000 jp-trend   # → http://127.0.0.1:8899
 
 첫 실행 시 즉시 1회 수집·번역하고, 이후 `config.yaml` 의 `refresh_interval_seconds`(기본 15분)마다 자동 갱신합니다.
 
+### 일일 인사이트 리포트 (한 파일에 매일 누적)
+매일 아침(기본 KST 08:00) 나라별·카테고리별 **뉴스 트렌드 + 규칙기반 인사이트**를
+`reports/daily.md` 한 파일에 **최신순으로 누적**합니다(동영상 제외, 뉴스 전용).
+- 내용: 실시간 급상승 검색 · 뉴스 키워드 트렌드(기사 수) · 카테고리별 주요 뉴스 · 인사이트 · 국가 공통 화제
+- 지금 즉시 생성: `curl -X POST http://127.0.0.1:8899/api/report/run` · 열람: `http://127.0.0.1:8899/api/report`
+- 설정: `config.yaml` 의 `report`(파일 경로, 생성 시각 `hour_kst`, on/off)
+
 ### 로컬에서 계속 띄워두기 (백그라운드 상시 실행)
 ```bash
 ./scripts/service.sh start     # 백그라운드 실행 (터미널 닫아도 유지)

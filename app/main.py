@@ -15,11 +15,14 @@ from fastapi import FastAPI, Query
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from fastapi.responses import PlainTextResponse
+
 from .adapters import build_adapters
 from .classify import enrich, matches_view
 from .collector import Collector
-from .config import DATA_DIR, load_config
+from .config import DATA_DIR, ROOT_DIR, load_config
 from .http_client import PoliteClient
+from .report import append_daily_report, today_kst
 from .storage import Storage
 from .translate import Translator
 
@@ -59,11 +62,43 @@ async def lifespan(app: FastAPI):
         seconds=config.refresh_interval_seconds,
         id="collect_all", max_instances=1, coalesce=True,
     )
+
+    # 일일 인사이트 리포트 (한 파일에 누적, 뉴스 전용)
+    report_cfg = config.raw.get("report", {}) or {}
+    report_enabled = bool(report_cfg.get("enabled", True))
+    report_path = ROOT_DIR / report_cfg.get("file", "reports/daily.md")
+    app.state.report_path = report_path
+
+    async def _daily_report():
+        try:
+            await asyncio.to_thread(append_daily_report, storage, config, report_path)
+        except Exception as exc:
+            log.warning("일일 리포트 생성 실패: %s", exc)
+    app.state.run_daily_report = _daily_report if report_enabled else None
+
+    if report_enabled:
+        scheduler.add_job(
+            _daily_report, "cron", hour=int(report_cfg.get("hour_kst", 8)), minute=0,
+            timezone="Asia/Seoul", id="daily_report", max_instances=1, coalesce=True,
+        )
+
     scheduler.start()
     app.state.scheduler = scheduler
 
     if config.run_on_startup:
-        asyncio.create_task(collector.collect_all())
+        async def _startup():
+            await collector.collect_all()
+            # 오늘 리포트가 없으면 시작 시 1회 생성
+            if report_enabled and report_cfg.get("run_on_startup", True):
+                need = True
+                if report_path.exists():
+                    try:
+                        need = f"# 📅 {today_kst()}" not in report_path.read_text(encoding="utf-8")
+                    except Exception:
+                        need = True
+                if need:
+                    await _daily_report()
+        asyncio.create_task(_startup())
 
     log.info(
         "대시보드 준비 완료 — http://%s:%s (지역=%s, 갱신 %ds)",
@@ -203,6 +238,27 @@ async def api_refresh():
     collector: Collector = app.state.collector
     asyncio.create_task(collector.collect_all())
     return JSONResponse({"status": "started"})
+
+
+@app.get("/api/report", response_class=PlainTextResponse)
+async def api_report():
+    """누적 일일 리포트(마크다운) 원문."""
+    path = app.state.report_path
+    if not path.exists():
+        return PlainTextResponse(
+            "아직 리포트가 없습니다. POST /api/report/run 으로 생성하세요.",
+            status_code=404)
+    return PlainTextResponse(path.read_text(encoding="utf-8"))
+
+
+@app.post("/api/report/run")
+async def api_report_run():
+    """지금 즉시 오늘 리포트 생성/갱신."""
+    runner = getattr(app.state, "run_daily_report", None)
+    if not runner:
+        return JSONResponse({"status": "disabled"})
+    await runner()
+    return JSONResponse({"status": "generated", "file": str(app.state.report_path)})
 
 
 # ------------------------------------------------------------------ static

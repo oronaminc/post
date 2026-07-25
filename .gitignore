@@ -9,8 +9,9 @@ env/
 # Environment / secrets
 .env
 
-# App data (SQLite DB & logs)
+# App data (SQLite DB & logs) + generated reports
 data/
+reports/
 *.sqlite
 *.sqlite3
 *.db

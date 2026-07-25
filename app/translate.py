@@ -39,10 +39,14 @@ class Translator:
         self.user_agent = user_agent
 
     def needs_translation(self, term: str) -> bool:
-        """번역이 필요한 워드인가? (빈값·이미 목표언어면 False)"""
+        """번역이 필요한 워드인가? (빈값·이미 한국어·영문/약어면 False)"""
         if not term or not term.strip():
             return False
         if self.target == "ko" and _mostly_korean(term):
+            return False
+        # 영문/약어(AI, EU, LNG 등)는 그대로 두는 게 나음(오역 방지)
+        letters = [c for c in term if c.isalpha()]
+        if letters and all(c.isascii() for c in letters):
             return False
         return True
 
