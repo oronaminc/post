@@ -33,6 +33,8 @@ class GoogleNewsRssAdapter(BaseAdapter):
         per_cat = int(self.settings.get("per_category_limit", 12))
         # 카테고리당 시도할 검색어 수 상한(요청 수 억제 → 지역 다수일 때 타임아웃 방지)
         max_queries = int(self.settings.get("max_queries_per_category", 1))
+        # 최근성 필터 (예: "1d","2d","3d") → 최근 기사만. 빈값이면 관련도순 전체.
+        recency = str(self.settings.get("recency", "") or "").strip()
         # 지역별 로케일 (일본=ja/JP, 대만=zh-TW/TW)
         locale = self._rget("locale", {}) or {}
         hl = locale.get("hl", "ja")
@@ -48,7 +50,8 @@ class GoogleNewsRssAdapter(BaseAdapter):
             seen: set[str] = set()
             rank = 0
             for query in queries:
-                q = urllib.parse.quote(query)
+                qtext = f"{query} when:{recency}" if recency else query
+                q = urllib.parse.quote(qtext)
                 url = (f"https://news.google.com/rss/search?q={q}"
                        f"&hl={hl}&gl={gl}&ceid={urllib.parse.quote(ceid)}")
                 try:

@@ -246,6 +246,7 @@ sources:
     enabled: true
     regions: [kr, jp, tw]
     per_category_limit: 12
+    recency: "2d"            # 최근 N일 기사만 (1d/2d/3d…). 빈값이면 관련도순 전체
     locale:
       kr: { hl: ko,    gl: KR, ceid: "KR:ko" }
       jp: { hl: ja,    gl: JP, ceid: "JP:ja" }
