@@ -22,7 +22,7 @@ from .classify import enrich, matches_view
 from .collector import Collector
 from .config import DATA_DIR, ROOT_DIR, load_config
 from .http_client import PoliteClient
-from .report import append_daily_report, today_kst
+from .report import today_kst, write_reports
 from .storage import Storage
 from .translate import Translator
 
@@ -63,22 +63,26 @@ async def lifespan(app: FastAPI):
         id="collect_all", max_instances=1, coalesce=True,
     )
 
-    # 일일 인사이트 리포트 (한 파일에 누적, 뉴스 전용)
+    # 일일 인사이트 리포트 (뉴스 전용, md 누적 + json 최신 스냅샷)
     report_cfg = config.raw.get("report", {}) or {}
     report_enabled = bool(report_cfg.get("enabled", True))
     report_path = ROOT_DIR / report_cfg.get("file", "reports/daily.md")
+    report_json_path = ROOT_DIR / report_cfg.get("json_file", "reports/daily.json")
     app.state.report_path = report_path
+    app.state.report_json_path = report_json_path
 
     async def _daily_report():
         try:
-            await asyncio.to_thread(append_daily_report, storage, config, report_path)
+            await asyncio.to_thread(write_reports, storage, config, report_path, report_json_path)
         except Exception as exc:
             log.warning("일일 리포트 생성 실패: %s", exc)
     app.state.run_daily_report = _daily_report if report_enabled else None
 
     if report_enabled:
+        hours = report_cfg.get("hours_kst", [0, 12])
+        hour_expr = ",".join(str(int(h)) for h in hours)
         scheduler.add_job(
-            _daily_report, "cron", hour=int(report_cfg.get("hour_kst", 8)), minute=0,
+            _daily_report, "cron", hour=hour_expr, minute=0,
             timezone="Asia/Seoul", id="daily_report", max_instances=1, coalesce=True,
         )
 
@@ -249,6 +253,16 @@ async def api_report():
             "아직 리포트가 없습니다. POST /api/report/run 으로 생성하세요.",
             status_code=404)
     return PlainTextResponse(path.read_text(encoding="utf-8"))
+
+
+@app.get("/api/report.json")
+async def api_report_json():
+    """다른 프로젝트용 구조화 리포트(최신 스냅샷)."""
+    path = app.state.report_json_path
+    if not path.exists():
+        return JSONResponse({"error": "no report yet"}, status_code=404)
+    import json as _json
+    return JSONResponse(_json.loads(path.read_text(encoding="utf-8")))
 
 
 @app.post("/api/report/run")

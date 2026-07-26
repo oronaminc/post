@@ -350,9 +350,10 @@ sources:
 # -----------------------------------------------------------------------------
 report:
   enabled: true
-  file: "reports/daily.md"   # 누적 리포트 파일 경로(최신 날짜가 맨 위)
-  hour_kst: 8                # 매일 생성 시각(KST). 서버 실행 중이어야 함
-  run_on_startup: true       # 서버 시작 시 오늘 리포트가 없으면 1회 생성
+  file: "reports/daily.md"       # 사람이 읽는 마크다운(최신순 누적, 날짜+시각 섹션)
+  json_file: "reports/daily.json" # 다른 프로젝트용 구조화 JSON(최신 스냅샷)
+  hours_kst: [0, 12]             # 매일 생성 시각(KST) — 00시·12시 두 번
+  run_on_startup: true           # 서버 시작 시 오늘분 없으면 1회 생성
 
 translation:
   enabled: true
