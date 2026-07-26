@@ -139,6 +139,51 @@ def build_exclude(seeds, lang: str) -> set[str]:
     return exclude
 
 
+def _sp_overlap(a: str, b: str) -> int:
+    """a의 접미 == b의 접두 최대 길이."""
+    for k in range(min(len(a), len(b)), 1, -1):
+        if a[-k:] == b[:k]:
+            return k
+    return 0
+
+
+def _dedup_fragments(items: list[tuple[str, int]]) -> list[tuple[str, int]]:
+    """겹치는 CJK n-gram 조각(예: 大相撲名/相撲名古/…)을 한 덩어리로 묶어
+    대표 1개(가장 긴/빈도 높은)만 남긴다. union-find 클러스터링."""
+    terms = [t for t, _ in items]
+    df = {t: n for t, n in items}
+    n = len(terms)
+    parent = list(range(n))
+
+    def find(x: int) -> int:
+        r = x
+        while parent[r] != r:
+            r = parent[r]
+        while parent[x] != r:
+            parent[x], x = r, parent[x]
+        return r
+
+    for i in range(n):
+        a = terms[i]
+        for j in range(i + 1, n):
+            b = terms[j]
+            if a in b or b in a:
+                parent[find(i)] = find(j)
+                continue
+            ov = max(_sp_overlap(a, b), _sp_overlap(b, a))
+            if ov >= 2 and ov >= min(len(a), len(b)) - 1:
+                parent[find(i)] = find(j)
+
+    clusters: dict[int, list[int]] = defaultdict(list)
+    for i in range(n):
+        clusters[find(i)].append(i)
+    out: list[tuple[str, int]] = []
+    for idxs in clusters.values():
+        rep = max(idxs, key=lambda i: (len(terms[i]), df[terms[i]]))
+        out.append((terms[rep], max(df[terms[i]] for i in idxs)))
+    return out
+
+
 def extract_trends(docs: list[tuple[str, str]], lang: str,
                    min_df: int = 3, top: int = 25,
                    exclude: set[str] | None = None) -> list[dict]:
@@ -165,15 +210,9 @@ def extract_trends(docs: list[tuple[str, str]], lang: str,
 
     items = [(term, n) for term, n in df.items() if n >= min_df]
 
-    # CJK 부분문자열 정리: 더 긴 키워드에 포함되고 빈도가 비슷하면 짧은 건 버림
+    # CJK 조각 병합: 겹치는 n-gram을 한 덩어리로 묶어 대표만 남김
     if lang in ("ja", "zh"):
-        items.sort(key=lambda x: (-len(x[0]), -x[1]))
-        kept: list[tuple[str, int]] = []
-        for term, n in items:
-            if any(term in k and term != k and n <= kn * 1.34 for k, kn in kept):
-                continue
-            kept.append((term, n))
-        items = kept
+        items = _dedup_fragments(items)
 
     items.sort(key=lambda x: x[1], reverse=True)
     result = []

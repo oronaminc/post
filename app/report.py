@@ -34,6 +34,11 @@ def _ko(item: dict) -> str:
     return ko if ko and ko != (item.get("term") or "").strip() else item.get("term", "")
 
 
+def _trunc(s: str, n: int) -> str:
+    s = (s or "").strip()
+    return s if len(s) <= n else s[:n].rstrip() + "…"
+
+
 def _by_source(storage, region: str) -> dict[str, list[dict]]:
     by_src: dict[str, list[dict]] = defaultdict(list)
     for it in storage.get_current_items(region):
@@ -135,13 +140,14 @@ def render_markdown(data: dict, config) -> str:
         out.append(f"## {rd['flag']} {rd['label']}")
         out.append("")
         if rd["realtime_search"]:
-            out.append("**🔥 실시간 급상승 검색**: " + " · ".join(rd["realtime_search"]))
+            terms = [_trunc(t, 18) for t in rd["realtime_search"]]
+            out.append("**🔥 실시간 급상승 검색**: " + " · ".join(terms))
             out.append("")
         if rd["news_keywords"]:
             out.append("**📰 뉴스 키워드 트렌드** _(괄호=다룬 기사 수)_")
-            for k in rd["news_keywords"]:
-                extra = f" — {k['term_ko']}" if k["term_ko"] else ""
-                out.append(f"- **{k['term']}**{extra} ({k['articles']}) · {k['category_label']}")
+            for k in rd["news_keywords"][:10]:
+                extra = f" ({k['term_ko']})" if k["term_ko"] else ""
+                out.append(f"- **{k['term']}**{extra} — {k['articles']}건 · {k['category_label']}")
             out.append("")
         if rd["category_news"]:
             out.append("**🗂 카테고리별 주요 뉴스**")
@@ -149,8 +155,9 @@ def render_markdown(data: dict, config) -> str:
                 cn = rd["category_news"].get(c["id"])
                 if not cn:
                     continue
-                extra = f" _( {cn['headline_ko']} )_" if cn["headline_ko"] else ""
-                out.append(f"- **{cn['label']}**: {cn['headline']}{extra}")
+                # 원어 헤드라인은 짧게, 한국어 번역이 있으면 그걸 우선(읽기 편하게)
+                text = _trunc(cn["headline_ko"] or cn["headline"], 52)
+                out.append(f"- **{cn['label']}**: {text}")
             out.append("")
         if rd["insights"]:
             out.append("**💡 인사이트**")
